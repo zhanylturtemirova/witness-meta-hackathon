@@ -1,44 +1,36 @@
-# Witness — Meta Hackathon
+# Witness
 
-AI-интервьюер, который помогает сохранять личные и семейные воспоминания в виде редактируемых историй с проверяемыми ссылками на исходные ответы.
+A space to look back on your life, tell the stories that matter to you, and find people who have lived through something similar.
 
-**Статус на 28 октября 2026:** подготовка текстового прототипа для Meta Global AI Developer Hackathon, Indie Dev Track. В репозитории пока только документация: приложения и интеграции с API ещё нет. Команды запуска появятся после реализации.
+Some memories help us understand who we are. Others deserve to be heard beyond our closest circle. Witness is designed to help people explore both — without needing to be a writer or knowing how to tell their story from the start.
 
-## Прототип для хакатона
+An AI interviewer follows the conversation, asks thoughtful questions, and helps turn scattered memories into stories that still sound like you. You choose what stays private and what you want to share.
 
-1. Пользователь выбирает эпизод жизни и отвечает на вопросы.
-2. Интервьюер задаёт уточнения с учётом уже сказанного, отмечает неясные детали.
-3. Пользователь проверяет и исправляет ответы, может пропустить вопрос.
-4. AI собирает одну главу; каждый сгенерированный фрагмент связан с версиями исходных ответов.
-5. Автор редактирует главу и экспортирует её. Создание главы не означает публикацию.
+## What Witness is for
 
-Главная ценность — помочь сохранить историю в собственном голосе без навыков письма или проведения интервью. Подтверждённых пользовательских результатов пока нет.
+- **Looking back:** revisit turning points, relationships, places, and everyday moments to build your own retrospective of your life.
+- **Being heard:** shape an experience into a story you can share with family, friends, or a wider audience.
+- **Finding each other:** discover people through experiences they choose to share — moving to a new country, starting over, or even being at the same concert.
 
-## План использования Meta
+A complete autobiography is one possible outcome. A single meaningful story can be enough.
 
-**Muse Spark 1.3** — предлагаемая основная модель для контекстных вопросов, уточнений и черновика главы. Интеграция и качество ещё не проверены. Подробности, ограничения и будущие модели: [план AI](docs/meta-models.md).
+## The first experience
 
-## Документация
+Choose a memory or a period of your life. Answer a few questions, follow the details that matter, and skip anything you do not want to discuss. Review your answers, then turn them into an editable story with links back to what you said.
 
-- [Границы прототипа и проверка готовности](docs/hackathon-scope.md)
-- [Модели Meta и их назначение](docs/meta-models.md)
-- [Происхождение материалов и новая работа](docs/provenance.md)
-- [Исходная концепция продукта](docs/background/product.md)
-- [Исходные принципы работы с данными](docs/background/data-and-consent.md)
-- [Исходная техническая концепция](docs/background/technical-outline.md)
+The first build focuses on this interview-to-story flow. Sharing, discovery, and video interviews are part of the wider vision.
 
-## Происхождение
+## AI behind Witness
 
-Идея и часть документации Witness существовали **до хакатона**. В `docs/background/` сохранены явно обозначенные исходные материалы с адаптацией внутренних ссылок. Они не выдаются за новую конкурсную разработку. Исходная папка Witness сохранена без изменений. Новый репозиторий сам по себе не подтверждает новизну кода.
+The plan is to use **Meta Muse Spark 1.3** for contextual interview questions, follow-ups, and story drafts based on the narrator's answers.
 
-## Данные и разработка
+Later, **Muse Voice Transcribe** could turn spoken memories into text, and **Muse Image** could help explore the look of a virtual interviewer and interview setting. These are optional extensions to the text experience.
 
-Для демо используем явно обозначенные вымышленные истории. Ключи API хранятся вне Git и не попадают в клиентское приложение. Реальные интервью, записи и договоры не публикуются. Стек и хранилище пока не выбраны.
+See [Models and their roles](docs/meta-models.md) for the details.
 
-Публичная видимость репозитория не заменяет лицензию: отдельная лицензия на распространение пока не выбрана.
+## Explore
 
-## Ссылки
-
-- [Хакатон](https://cerebralvalley.ai/e/meta-ai-developer-hackathon)
-- [Participant Guide](https://cerebralvalley.ai/e/meta-ai-developer-hackathon/details)
-- [Meta Model API](https://dev.meta.ai/docs/overview)
+- [Product vision](docs/background/product.md)
+- [First build](docs/hackathon-scope.md)
+- [Technical outline](docs/background/technical-outline.md)
+- [Stories, privacy, and control](docs/background/data-and-consent.md)

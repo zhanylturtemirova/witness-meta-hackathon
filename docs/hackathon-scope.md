@@ -1,27 +1,30 @@
-# Текстовый прототип Witness
+# First build
 
-Источник границ: заявка основательницы на хакатон. Реализация ещё не начата в этом репозитории.
+A guided text interview that helps someone explore a memory and turn it into a story they recognise as their own.
 
-## Сценарий
+## Flow
 
-Один человек хочет сохранить воспоминание для себя или семьи. Вход — его текстовые ответы. Результат — одна отредактированная глава с доступными исходными ответами и экспортом.
+1. Pick a memory, theme, or period of life.
+2. Answer a question in your own words.
+3. Get a follow-up that builds on what you said.
+4. Review details that are unclear, without having to force an exact answer.
+5. Create and edit a story, with links back to the source answers.
+6. Export the version you want to keep or share yourself.
 
-## Проверка готовности
+## What should work
 
-- Ответы сохраняются и доступны после повторного открытия.
-- Уточнения учитывают контекст; вопрос можно пропустить.
-- Неясные детали можно подтвердить, исправить или оставить неопределёнными.
-- Глава связана с версиями исходных ответов; переход к источнику работает.
-- Автор может редактировать и отклонять текст.
-- Изменение ответа помечает зависимую главу для проверки.
-- Ошибка генерации не теряет ответы; доступен повтор.
-- Экспорт содержит выбранную версию главы.
-- Демо явно использует вымышленные данные и показывает реальную интеграцию Meta.
+- Saved answers survive closing and reopening the interview.
+- Questions respond to the conversation and can be skipped.
+- Uncertain details remain uncertain unless the narrator clarifies them.
+- Each generated passage links to the answer versions it draws from.
+- Editing an answer flags affected passages for review.
+- A failed AI request does not lose the narrator's answers.
+- The narrator can edit, reject, and export the story.
 
-## Вне первой версии
+Use a fictional memory for the demo and show the full flow, including a correction and its source.
 
-Социальный поиск людей, издательский marketplace, платежи, видеоинтервью, клонирование голоса и образа реальных людей. Не добавлять их автоматически ради количества функций.
+## Beyond the first build
 
-## Открытые решения
+Opt-in sharing and discovery would help people find stories and people they relate to. Voice input and video interviews would offer other ways to tell those stories. These features should build on the narrator's control over what is shared.
 
-Стек, платформа, язык интерфейса, хранение и формат экспорта. Предлагаемые модели описаны в [meta-models.md](meta-models.md); конкретные решения фиксировать по мере реализации.
+See [Models and their roles](meta-models.md) for the AI plan.

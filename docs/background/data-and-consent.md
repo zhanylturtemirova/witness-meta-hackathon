@@ -1,33 +1,32 @@
-# Данные, авторский контроль и согласия
+# Stories, privacy, and control
 
-Предлагаемые продуктовые и технические принципы. Это не юридическое заключение и не опубликованная политика конфиденциальности.
+A person should be able to explore a memory without deciding to publish it. Reflection, editing, sharing, and meeting others are separate choices.
 
-## История и её версии
+## Keep the narrator in control
 
-Различать исходную запись, транскрипт, исправленный автором ответ, AI-черновик главы, утверждённую главу и экспортированный материал. Для производных материалов сохранять ссылки на источники и версии. Исправление ответа не должно уничтожать оригинал или незаметно менять уже утверждённый выпуск.
+Keep the original answers, their revisions, generated drafts, and approved stories distinct. Let the narrator see the sources behind a passage and change the wording.
 
-Память человека может быть неточной. Слова «примерно», «не помню», «по моим воспоминаниям» сохраняются по смыслу. Неподтверждённые события нельзя превращать в установленный факт. AI не добавляет биографические детали ради драматургии.
+Memory is not always precise. Preserve “roughly,” “I don't remember,” and “as I recall.” Do not turn uncertainty into a confident claim or add details for dramatic effect.
 
-## Раздельные действия автора
+## Sharing choices
 
-| Действие | Что важно отделить |
+| Choice | What the narrator controls |
 | --- | --- |
-| Личный архив | Хранение материала не делает его общедоступным |
-| Отправка редактору | Получатель и конкретные материалы |
-| Публикация | Выбранная версия, канал и аудитория |
-| Каталог для продюсеров | Синопсис, раскрываемое имя и доступ к полной истории |
-| Знакомства по опыту | Добровольное участие; согласованный профиль, а не скрытый анализ частного архива |
-| Видео / озвучка | Материалы, способ обработки, синтетические элементы и право использования голоса/образа |
-| Обучение моделей | Не подразумевается согласием на создание биографии; условия поставщика нужно проверить |
+| Personal reflection | Which memories to explore and keep private |
+| Sharing a story | The version, audience, and visible name |
+| Discovery | Which shared stories or topics can help others find them |
+| Contact | Whether and how other people can reach out |
+| Sending to an editor | The recipient and selected material |
+| Video or audio | The approved story, synthetic elements, and use of voice or likeness |
 
-В интерфейсе должна быть ясна разница между черновиком и публикацией. Отмена будущего доступа и удаления из внутреннего каталога не гарантирует отзыв уже скачанных копий или отмену отдельно подписанного договора.
+Creating a story does not automatically make it searchable. Shared experiences should be matched from material people choose to share, not hidden analysis of private interviews.
 
-## Перед реальным пилотом
+## Before using real stories
 
-Выбрать место хранения и поставщиков обработки, проверить их правила использования данных, сроки хранения и удаления. Описать доступ автора, редактора и администратора. Предусмотреть экспорт и удаление, а также поведение резервных копий и производных материалов. Проверить применимые требования для выбранных стран и аудитории; пока юрисдикция продукта не выбрана.
+Choose storage and processing providers with clear retention and deletion behaviour. Explain who can access the material and how to export or delete it, including derived drafts and backups.
 
-Люди могут рассказывать о родственниках и третьих лицах. Права на фотографии, записи и публикацию конкретных сведений требуют отдельной оценки, особенно перед каталогом и экранизацией. Не обещать автору полную исключительность прав на все факты жизни.
+Stories may include relatives and other people. Treat their personal information, photographs, and recordings carefully. Removing a shared story cannot recall copies someone has already downloaded.
 
-## В репозитории
+## Development material
 
-Хранить только вымышленные демонстрационные истории с явной маркировкой. Реальные ответы, записи, договоры, ключи и личные профили не должны попадать в коммиты. `.gitignore` помогает избежать случайного добавления локальных файлов, но не является защитой данных приложения.
+Use clearly fictional stories for demos. Keep real interviews, recordings, contracts, personal profiles, and API keys out of the repository.

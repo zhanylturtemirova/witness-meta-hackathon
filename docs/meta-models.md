@@ -1,38 +1,38 @@
-# План использования моделей Meta
+# Models and their roles
 
-Обновлено 28.10.2026. Это предложенный план реализации, а не перечень уже работающих интеграций. Доступ к моделям и биллинг нужно проверить в аккаунте перед первыми запросами.
+The text experience is designed around one main model. Other models are options for specific extensions, rather than requirements for every interview.
 
-| Модель / инструмент | Назначение в Witness | Статус |
+| Model | Role in Witness | Scope |
 | --- | --- | --- |
-| Muse Spark 1.3 (`muse-spark-1.3`) | Следующий вопрос по контексту интервью; обнаружение неясных деталей; создание черновика главы по подтверждённым ответам | Основной кандидат для текстового прототипа |
-| Muse Wonder (`muse-wonder-1.0`) | Возможный сравнительный эксперимент по качеству проверки главы относительно ответов | Не обязательна; только если эксперимент оправдает сложность и стоимость |
-| Muse Voice Transcribe (`muse-voice-transcribe-1.0`) | Распознавание голосовых ответов перед проверкой автором | После текстового прототипа; не синтезирует речь |
-| Muse Image (`muse-image-1.0`) | В будущем — визуальные эскизы вымышленного ведущего или обстановки интервью | Вне первой версии; не генератор видео |
-| Muse Code | Возможный помощник разработчика для написания кода | Инструмент разработки, не функция интервью |
+| **Muse Spark 1.3** (`muse-spark-1.3`) | Ask contextual questions, follow up on details, suggest points to clarify, and draft stories from reviewed answers | Planned core model |
+| **Muse Wonder** (`muse-wonder-1.0`) | Explore whether a separate review step can better catch unsupported details in a draft | Optional experiment |
+| **Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) | Turn spoken memories into text for the narrator to review | Future voice input |
+| **Muse Image** (`muse-image-1.0`) | Explore visual concepts for a fictional interviewer and interview setting | Future visual exploration |
 
-Названия и доступные типы задач сверены с [каталогом Meta](https://dev.meta.ai/docs/models). Назначение этих моделей именно в Witness — проектное предложение. Продукт не обязан использовать все модели из таблицы.
+[Muse Code](https://dev.meta.ai/docs/muse-code) is also an optional development assistant. It is separate from the AI that interviews the narrator.
 
-## Предлагаемый поток Muse Spark
+## Interview and story generation
 
-- Передавать выбранные ответы с постоянными идентификаторами и версиями.
-- Получать один следующий вопрос и список деталей, требующих подтверждения. Не заставлять автора угадывать точные даты.
-- Для главы запрашивать структурированные фрагменты со ссылками на использованные идентификаторы ответов.
-- Проверять существование ссылок программно. Ссылка подтверждает происхождение материала, но не гарантирует истинность каждого предложения: автор должен видеть источник и исправлять текст.
-- Не добавлять события, реплики и имена, которых нет в ответах. Неопределённость сохранять, а не превращать в точный факт.
-- После изменения ответа помечать связанные фрагменты как требующие повторной проверки; не переписывать утверждённую главу молча.
+Muse Spark would receive the relevant answers with stable IDs and version numbers. It would suggest a next question or a detail worth clarifying, then draft passages linked to the answers they draw from.
 
-## Что реализовать в приложении, а не поручать модели
+The application should check that those source IDs exist and let the narrator open each source beside the draft. A valid link alone does not prove that the passage is faithful to the answer; the narrator still needs to review it.
 
-Хранение и версии ответов, доступы, проверка структуры результата и допустимых ID, редактирование, экспорт и обработка ошибок. При ошибке API сохранять материал пользователя; повтор не должен дублировать ответы.
+The model should preserve phrases such as “around that time” or “I don't remember exactly.” It should not fill gaps with invented events, names, or quotes.
 
-## Доступ и расходы
+## What the application handles
 
-Планируем серверное обращение к Meta Model API; секретный ключ не включается в клиент или репозиторий. До первых платных вызовов проверить зачисление кредитов. Уведомление Spend Limit не считать автоматическим отключением запросов.
+Saving and versioning answers, editing, source links, access controls, and export belong in application code. When an answer changes, related passages should be marked for review. Failed requests should leave the original material intact.
 
-Для личных историй планируем Standard mode; режим обработки, хранение данных и условия поставщика нужно отдельно проверить перед реальными интервью. На этапе демо — только вымышленные истории. Не обещаем пользователю отсутствие хранения данных поставщиком.
+API calls should run on the server. Standard mode is the intended choice for personal stories; provider data handling needs review before real interviews. Development and demos use fictional stories.
 
-## Проверка качества перед выбором
+## Voice, visuals, and discovery
 
-На вымышленных историях проверить: уместность уточнений, сохранение неопределённых дат, отсутствие добавленных фактов, корректность связей с ответами, поведение при правке источника и ошибке API. Проверка моделью не заменяет проверку автора.
+Muse Voice Transcribe returns text, not synthetic speech. Muse Image produces images, not a finished video interview. Video generation and voice synthesis need a separate technical choice.
 
-Видео, озвучка и виртуальные аватары не включены в прототип; доступный API для будущего видео здесь не утверждается.
+For future story discovery, model and search choices remain open. Matching should use only stories or topics people explicitly choose to share, not their private interviews.
+
+## What to check
+
+Try fictional stories with vague dates, conflicting details, and corrected answers. Check whether follow-ups are useful, drafts preserve the narrator's meaning, and source links remain correct after edits. Compare models only when there is a specific quality problem to solve.
+
+Model capabilities and identifiers: [Meta model documentation](https://dev.meta.ai/docs/models).

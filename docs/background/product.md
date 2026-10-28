@@ -1,51 +1,29 @@
-# Продукт Witness
+# Product vision
 
-## Задача
+Witness helps people look back on their lives and decide which experiences they want to put into words. It is a place for reflection, expression, and connection.
 
-Помочь человеку последовательно вспомнить и описать свою жизнь, сохранить авторский голос и получить текст, который можно редактировать и собрать в биографию.
+A story does not need a famous narrator or an extraordinary ending to matter. A move, a friendship, a difficult choice, or a night at a concert can be meaningful to someone who lived it — and to someone who recognises part of their own life in it.
 
-Статус: концепция. Подтверждённого сегмента, готового прототипа, пользователей и выручки нет в имеющихся сведениях.
+## Reflect
 
-## Требования основательницы
+An AI interviewer helps the narrator revisit events and explore what they meant to them. Questions can follow a timeline or stay with a particular memory. The narrator can skip a question, change direction, or return later.
 
-| ID | Возможность | Статус |
-| --- | --- | --- |
-| W-01 | AI задаёт вопросы в хронологическом порядке | Основная идея |
-| W-02 | Сохранение ответов и последующая правка | Основная идея |
-| W-03 | Компоновка ответов в автобиографию | Основная идея |
-| W-04 | Предлагать людей с похожими пережитыми событиями | Возможное расширение |
-| W-05 | Развивать навык написания текста | Возможное расширение |
-| W-06 | Предлагать истории для экранизаций и получать комиссию | Бизнес-гипотеза основательницы |
-| W-07 | Создавать видеоинтервью / выпуск / подкаст | Будущая функция, добавлена 15.10.2026 |
+The aim is to support the person's own interpretation of their life, not assign a diagnosis, personality label, or explanation on their behalf.
 
-## Предложение первой версии
+## Tell
 
-Это предлагаемая граница разработки, а не утверждённый план реализации.
+Answers become the material for an editable story. The narrator can check where a passage came from, change the wording, and decide what feels right. Their uncertainty, humour, and way of speaking should survive the editing process.
 
-Пользователь создаёт проект биографии, выбирает период жизни и отвечает на вопросы. Интервьюер задаёт уточнения, сохраняет ответы и предлагает перейти к следующему периоду. Пользователь возвращается позже, исправляет материал и собирает одну главу. Пропуск вопроса и возврат к более раннему событию допустимы: хронология помогает, но не должна блокировать рассказ.
+A short account of one experience, a collection of memories, and a longer life retrospective are all useful outcomes.
 
-Текстовый ввод — минимальный путь. Голос, распознавание речи и изображения можно добавить после проверки потребности; поставщики не выбраны.
+## Connect
 
-## Предлагаемые критерии готовности первой версии
+The wider vision includes opt-in discovery: people finding each other through experiences they choose to make visible. Someone might look for stories about starting over abroad, a shared neighbourhood, or the same concert.
 
-- После закрытия и повторного открытия сохранённые ответы доступны.
-- Редактирование ответа не стирает исходную версию; пользователь понимает, какая версия используется в главе.
-- Вопросы учитывают уже рассказанное и не требуют точной даты, если человек её не помнит.
-- Глава строится на выбранных ответах; AI не добавляет нерассказанные события и вымышленные цитаты.
-- Пользователь может изменить, отклонить или подтвердить черновик главы.
-- Изменение исходного ответа помечает связанную главу как требующую проверки, а не молча переписывает утверждённый текст.
-- Сборка биографии не делает её публичной.
-- Для демонстрации есть вымышленная история, явно обозначенная как пример.
+Private interviews stay outside discovery. A person chooses the story or topics to share and whether they want others to contact them. Similar experiences are an invitation to connect, not an assumption that two lives are the same.
 
-## Обучение письму
+## Other ways to tell a story
 
-Предлагаемый цикл: автор пишет эпизод → получает объяснение конкретной проблемы текста → выполняет небольшое упражнение → переписывает → сравнивает версии. Проверять нужно рост самостоятельности автора; автоматическая перепись всех ответов сама по себе не доказывает обучение.
+Voice input could make remembering feel more conversational. Video interviews could offer a choice of fictional interviewer and setting, using a story the narrator has already reviewed. Writing exercises could help people develop their own storytelling skills.
 
-## Что ещё выбрать
-
-- Первая аудитория: семейные истории, миграция, профессиональные биографии, начинающие авторы или другой сегмент.
-- Первый язык интерфейса и интервью; русский язык документации не фиксирует язык продукта.
-- Основной результат: личный архив, книга, обучение письму или материал для редактора.
-- Платформа и способ оплаты.
-
-План расширений — в roadmap исходного проекта (не перенесён). Видео подробно описано в video-interviews исходного проекта (не перенесён).
+These directions extend the core experience; the first build is the [text interview and editable story](../hackathon-scope.md).

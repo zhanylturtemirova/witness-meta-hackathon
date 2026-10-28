@@ -1,39 +1,40 @@
-# Техническая основа без преждевременного выбора стека
+# Technical outline
 
-Статус: проектирование. Язык, фреймворк, база данных, хостинг, AI-модель, сервисы распознавания речи и видеогенерации не выбраны. Ниже — предметная модель для обсуждения, не готовая схема БД.
+The core flow is: save an answer, ask a follow-up, review the material, draft a story, edit, and export.
 
-## Сущности первого сценария
+## Core records
 
-| Сущность | Смысл |
+| Record | Purpose |
 | --- | --- |
-| BiographyProject | Биография одного автора, настройки языка и периода |
-| InterviewSession | Отдельная беседа с возможностью продолжить позже |
-| Question | Вопрос, тема, примерный период, связь с уточняемым ответом |
-| AnswerRevision | Версия ответа и происхождение: ввод автора, транскрипция, правка |
-| LifeEvent | Событие с точной или приблизительной датой, привязанное к ответам |
-| ChapterRevision | Черновик/утверждённая глава со списком использованных версий ответов |
-| ConsentRecord | Конкретное действие, материалы, версия и решение автора |
-| Export | Файл или иной результат из конкретной утверждённой версии |
+| StoryProject | A memory, theme, or period the narrator wants to explore |
+| InterviewSession | A conversation that can be resumed |
+| Question | A question and its connection to earlier answers |
+| AnswerRevision | A version of the narrator's answer |
+| LifeEvent | An optional event with an exact or approximate date, linked to answers |
+| StoryRevision | A draft or reviewed story with passage-level source links |
+| SharingChoice | Which story version or topics a person chooses to share, and with whom |
+| Export | An output based on a selected story version |
 
-Не нужно реализовывать отдельный сервис для каждой сущности.
+These records describe the workflow, not a requirement for separate services.
 
-## Поток первого прототипа
+## Source links and edits
 
-Ответ автора → сохранение версии → вопрос/уточнение → выбор материалов → генерация черновика главы → проверка автором → сохранение утверждённой версии → экспорт по отдельному действию.
+Keep stable answer IDs and revisions. Generated passages refer to the answer versions used to create them. Validate those references before showing a draft.
 
-Предлагаемые свойства: повторный запрос не дублирует ответ; сбой генерации не теряет материал; логирование не копирует полный личный текст без необходимости; доступ к проекту проверяется при чтении, правке и экспорте.
+Changing an answer should flag affected passages for review. It should not silently replace a story the narrator has already approved.
 
-## Позже, для видео
+## Reliability
 
-Потребуются MediaAsset, EpisodePlan, RenderJob и EpisodeRevision либо их аналоги. Монтажный план ссылается на версии ответов и таймкоды, а рендеринг должен поддерживать статус, ошибку, отмену и повтор без случайного двойного списания. Конкретное решение зависит от выбранного формата из video-interviews исходного проекта (не перенесён).
+Save answers independently of model requests. A retry should not duplicate them. Keep API keys on the server and avoid logging the full text of personal stories. Check access when reading, editing, or exporting a project.
 
-## Перед выбором стека
+## Sharing and discovery
 
-- Где пользователь проходит интервью: веб, телефон, другое?
-- Сначала текст или обязательно голос?
-- Какие языки и устройства нужны первым участникам?
-- Какие требования к хранению личных историй и удалению?
-- Каков бюджет на интервью, главу и будущую минуту видео?
-- Кто поддерживает продукт и насколько простым должен быть запуск?
+A future discovery layer should use an explicit shared-story record, separate from the private interview. It needs the selected story version, visible topics, visibility settings, and contact preferences. Search and matching methods remain open.
 
-После выбора записать решение, причины и реальные команды установки/запуска. Не создавать инфраструктуру под все будущие направления заранее.
+## Voice and video
+
+Voice input adds a recording and a reviewable transcript. Video would need a scene plan, media assets, and render jobs linked to approved story versions. Rendering should support progress, cancellation, and retries without duplicate charges.
+
+## Choices ahead
+
+Choose the platform, storage, interface language, and export format around the first interview-to-story flow. Add setup instructions when there is an implementation to run.

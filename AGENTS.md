@@ -1,14 +1,11 @@
-# Работа в Witness Meta Hackathon
+# Working on Witness
 
-Начать с README.md, docs/hackathon-scope.md, docs/meta-models.md и docs/provenance.md.
+Read README.md, docs/hackathon-scope.md, and docs/meta-models.md first.
 
-- Документация на русском, если пользователь не попросил другой язык.
-- Это пока документация, не готовое приложение. Не придумывать команды запуска и результаты тестов.
-- Различать предложение, реализованную функцию и проверенный результат.
-- Старые материалы docs/background — источник принципов, не новая конкурсная работа. Их исторические статусы и ссылки относятся к исходной папке Witness.
-- Сначала текстовое интервью → проверка → одна редактируемая глава → экспорт.
-- Не расширять первую версию видео, маркетплейсом и социальной сетью без поручения.
-- Не придумывать биографические события, цитаты или согласия. Сохранять неопределённость и ссылки на версии ответов.
-- Только явно вымышленные истории для демо. Не коммитить ключи, реальные интервью и частные данные.
-- Ключи API не помещать в клиент. Ссылки на источники проверять программно; содержание подтверждает автор.
-- Перед завершением проверять ссылки и соответствие документации фактическому состоянию; после появления кода запускать релевантные проверки.
+- Write project documentation in English. Keep it natural, concise, and useful. Avoid dated status reports and administrative filler.
+- Witness is about personal reflection, stories being heard, and connections through shared experiences. Do not reduce it to biography storage.
+- Keep the first build focused on a text interview, review, an editable story, and export. Sharing, discovery, and video belong to the wider vision unless the user expands the implementation scope.
+- Describe planned features as plans. Do not claim integrations, user results, or tests that do not exist.
+- Preserve the narrator's voice, uncertainty, and links to source answers. Never invent life events or quotes.
+- Use fictional demo stories. Keep real interviews, personal records, and API keys out of Git. Keep API keys on the server.
+- Check local document links after edits. Once code exists, document real setup commands and run checks relevant to the changes.

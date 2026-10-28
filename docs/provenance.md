@@ -4,7 +4,7 @@
 
 Witness существовал как идея и документация от 13–15 октября 2026 года. Исходная папка: `witness`; исходный Git commit: `e947dac78654dcb90721b2c78f4b0d4c384c8360`.
 
-28 октября перенесены следующие документы (в product.md ссылки на неперенесённые документы заменены пояснениями):
+28 октября перенесены следующие документы (в product.md и technical-outline.md ссылки на неперенесённые документы заменены пояснениями):
 
 - `docs/product.md` → `docs/background/product.md`
 - `docs/technical-outline.md` → `docs/background/technical-outline.md`

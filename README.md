@@ -18,7 +18,7 @@ A complete autobiography is one possible outcome. A single meaningful story can 
 
 Choose a memory or a period of your life. Answer a few questions, follow the details that matter, and skip anything you do not want to discuss. Review your answers, then turn them into an editable story with links back to what you said.
 
-The first build focuses on this interview-to-story flow. The wider vision includes a globe of shared experiences, custom video interviews, a game through a life, and a mini-series shaped from the narrator’s memories.
+The first build focuses on this interview-to-story flow. Connect previews a globe of shared experiences using fictional stories. The wider vision includes real opt-in discovery, custom video interviews, a game through a life, and a mini-series shaped from the narrator’s memories.
 
 ## AI behind Witness
 
@@ -46,6 +46,12 @@ npm run build
 ```
 
 The build writes the static app to `dist/`.
+
+## Connect
+
+Open **Connect** from the sidebar to explore a globe of shared experiences. Choose an event from the fictional timeline to see matching stories light up and connect across the globe. Drag to rotate, locate a story on the map, or open a marker to read it.
+
+The preview uses fictional profiles and explicit event categories. It needs no AI credits or map key. [How Connect works](docs/connect.md).
 
 ## Voice answers
 

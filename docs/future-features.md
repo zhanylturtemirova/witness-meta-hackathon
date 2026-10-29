@@ -34,7 +34,7 @@ The narrator can confirm the event's topic and place before using it for discove
 
 Only deliberately shared stories appear. Use city-level or broader locations selected by their authors, not precise private addresses. Show why a story matched and let its author remove it from discovery.
 
-An early globe could use clearly fictional stories and simple topic matching to test the interaction. Event extraction could later use Muse Spark with narrator confirmation; globe rendering and location lookup need separate tools.
+The [Connect preview](connect.md) uses fictional stories and simple topic matching to test the interaction. Event extraction could later use Muse Spark with narrator confirmation; globe rendering and location lookup need separate tools.
 
 ## What comes first
 

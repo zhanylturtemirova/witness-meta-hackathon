@@ -30,3 +30,5 @@ Opt-in sharing and discovery would help people find stories and people they rela
 See [Models and their roles](meta-models.md) for the AI plan.
 
 The longer-term formats — custom video interviews, a life-based game, a mini-series, and a globe of shared events — are described in [Future features](future-features.md).
+
+Connect is also available as a separate interactive preview with a fictional event timeline, globe, and example stories. It makes no model calls and does not use private interview data.

@@ -1,3 +1,4 @@
+import {connectMarkup,mountConnect,unmountConnect,sharedStoryMarkup} from './connect.js';
 import {voiceMarkup,mountVoice,voiceBusy,leaveVoice} from './voice.js';
 import {TOPICS,newProject,nextQuestion,addAnswer,reviseAnswer,hasUncertainty,createStory,isStale,refreshPassage,exportStory,exampleProject,validProject} from './domain.js';
 const $=s=>document.querySelector(s);
@@ -14,17 +15,19 @@ const arrow='<span aria-hidden="true">↗</span>';
 const icons={home:'⌂',stories:'▤',spark:'✳',arrow:'↗'};
 function wordCount(p){return(p.story?p.story.passages.map(x=>x.text):p.answers.map(x=>x.text)).join(' ').trim().split(/\s+/).filter(Boolean).length;}
 function dateLabel(p){return new Intl.DateTimeFormat('en',{month:'short',day:'numeric'}).format(p.updatedAt);}
-function go(view,id=state.active){if(voiceBusy()){toast('Stop the recording or wait for transcription before leaving.');return;}if(view!=='interview'||id!==state.active)leaveVoice();state.view=view;state.active=id;if(current()&&view!=='home')current().stage=view;save();render();window.scrollTo({top:0});$('#main')?.focus({preventScroll:true});}
+function go(view,id=state.active){if(voiceBusy()){toast('Stop the recording or wait for transcription before leaving.');return;}if(view!=='interview'||id!==state.active)leaveVoice();state.view=view;state.active=id;if(current()&&['interview','review','story'].includes(view))current().stage=view;save();render();window.scrollTo({top:0});$('#main')?.focus({preventScroll:true});}
 function sizeTextareas(){document.querySelectorAll('.passage-text, .story-title').forEach(el=>{el.style.height='auto';el.style.height=(el.scrollHeight+4)+'px';});}
 window.addEventListener('resize',sizeTextareas);
 function render(){
- const p=current();if(state.view!=='home'&&!p)state.view='home';
- $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" data-action="home" aria-label="Witness home"><img src="./mark.svg" alt="" width="34" height="34">witness<span class="brand-dot">.</span></a><div class="sidebar-tag">EVERY LIFE, A STORY.</div><nav aria-label="Main navigation"><button class="nav-item ${state.view==='home'?'active':''}" data-action="home"><span>${icons.home}</span> My stories <span class="nav-count">${state.projects.length}</span></button><button class="nav-item" data-action="new"><span>＋</span> A new beginning</button></nav><div class="sidebar-note"><div class="little-sun" aria-hidden="true">✳</div><p>You don’t have to know<br>where your story starts.</p><span>Just start somewhere.</span></div><div class="sidebar-bottom"><span class="avatar">Y</span><div><strong>Your little corner</strong><small>Stored on this device</small></div></div></aside>
- <div class="workspace"><header class="topbar"><span class="breadcrumb">Your space <span>/</span> ${state.view==='home'?'My stories':esc(p?.title)}</span><div class="topbar-right"><span class="save-state" id="save-label">${storageError?'Not saved — download a copy':'Saved in this browser'}</span><button class="demo-badge" data-action="about"><i></i> Demo mode <span>ⓘ</span></button></div></header>
+ unmountConnect();
+ const p=current();if(!['home','connect'].includes(state.view)&&!p)state.view='home';
+ $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" data-action="home" aria-label="Witness home"><img src="./mark.svg" alt="" width="34" height="34">witness<span class="brand-dot">.</span></a><div class="sidebar-tag">EVERY LIFE, A STORY.</div><nav aria-label="Main navigation"><button class="nav-item ${state.view==='home'?'active':''}" data-action="home"><span>${icons.home}</span> My stories <span class="nav-count">${state.projects.length}</span></button><button class="nav-item ${state.view==='connect'?'active':''}" data-action="connect" aria-label="Connect"><span aria-hidden="true">◎</span> Connect <span class="nav-preview">PREVIEW</span></button><button class="nav-item" data-action="new"><span>＋</span> A new beginning</button></nav><div class="sidebar-note"><div class="little-sun" aria-hidden="true">✳</div><p>You don’t have to know<br>where your story starts.</p><span>Just start somewhere.</span></div><div class="sidebar-bottom"><span class="avatar">Y</span><div><strong>Your little corner</strong><small>Stored on this device</small></div></div></aside>
+ <div class="workspace"><header class="topbar"><span class="breadcrumb">Your space <span>/</span> ${state.view==='home'?'My stories':state.view==='connect'?'Connect':esc(p?.title)}</span><div class="topbar-right"><span class="save-state" id="save-label">${storageError?'Not saved — download a copy':'Saved in this browser'}</span><button class="demo-badge" data-action="about"><i></i> Demo mode <span>ⓘ</span></button></div></header>
  <div id="storage-warning" class="storage-warning" role="alert" ${storageError?'':'hidden'}>${esc(storageError)}</div>
- <main id="main" tabindex="-1">${state.view==='home'?home():flow(p)}</main><footer class="footer"><span>A little space to look back.</span><span>YOUR WORDS. YOUR PACE.</span></footer></div>
+ <main id="main" tabindex="-1">${state.view==='home'?home():state.view==='connect'?connectMarkup():flow(p)}</main><footer class="footer"><span>A little space to look back.</span><span>YOUR WORDS. YOUR PACE.</span></footer></div>
  <dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>`;
  sizeTextareas();
+ if(state.view==='connect')mountConnect({selected:state.connectEvent,onSelect:id=>{state.connectEvent=id;save();},onStory:s=>showDialog(sharedStoryMarkup(s))});
  if(state.view==='interview')mountVoice(p.id,{onNotify:toast,onApply:text=>{const input=$('#answer-input');const combined=[input.value.trim(),text].filter(Boolean).join('\n\n');if(combined.length>20000){toast('This answer is too long. Shorten it before adding the transcript.');return false;}input.value=combined;p.draft=combined;save();return true;}});
  if(loadError){const w=$('#storage-warning');w.innerHTML=esc(storageError)+' <button data-action="backup">Download saved data</button>';}
 }
@@ -43,7 +46,7 @@ function download(name,text,type='text/markdown;charset=utf-8'){const url=URL.cr
 document.addEventListener('click',e=>{
  const b=e.target.closest('[data-action]');if(!b||b.disabled)return;e.preventDefault();const action=b.dataset.action,id=b.dataset.id,p=current();if(voiceBusy()){toast('Stop the recording or wait for transcription before leaving.');return;}
  try {switch(action){
- case'home':go('home');break;case'new':newDialog();break;case'close':$('#modal').close();break;
+ case'home':go('home');break;case'connect':go('connect');break;case'new':newDialog();break;case'close':$('#modal').close();break;
  case'topic':start(id);break;
  case'example':{const x=exampleProject();state.projects.push(x);go('interview',x.id);break;}
  case'open':{const x=state.projects.find(p=>p.id===id);go(x.stage||'interview',id);break;}

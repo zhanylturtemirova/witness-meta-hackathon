@@ -18,6 +18,7 @@ export function newProject(topicId, customTitle='') {
     story:null, example:false, stage:'interview' };
 }
 export function nextQuestion(p) {
+  if(p.interviewer?.question)return p.interviewer.question;
   if (p.questionIndex===0) return TOPICS.find(t=>t.id===p.topicId)?.opening || TOPICS[0].opening;
   const previous = p.answers.at(-1)?.text || '';
   if (p.questionIndex===1 && /\b(move[ds]?|moving|arriv\w*|new city|new country)\b/i.test(previous))
@@ -31,8 +32,8 @@ export function nextQuestion(p) {
 export function addAnswer(p,text) {
   if (!text.trim()) throw new Error('Write an answer first.');
   if(text.length>20000) throw new Error('Please keep each answer under 20,000 characters.');
-  const answer={id:crypto.randomUUID(),question:nextQuestion(p),text:text.trim(),revision:1,history:[],uncertaintyReviewed:false};
-  p.answers.push(answer); p.questionIndex++; p.draft=''; p.updatedAt=Date.now(); return answer;
+  const answer={id:crypto.randomUUID(),question:nextQuestion(p),text:text.trim(),revision:1,history:[],uncertaintyReviewed:false,intent:p.interviewer?.intent||null};
+  p.answers.push(answer);p.interviewer=null; p.questionIndex++; p.draft=''; p.updatedAt=Date.now(); return answer;
 }
 export function reviseAnswer(p,id,text) {
   const a=p.answers.find(a=>a.id===id); if(!a) throw new Error('Answer not found.');

@@ -1,10 +1,11 @@
+import {META_NETWORK_ENABLED} from './ai/meta.mjs';
 import {wavInfo} from '../web/audio.js';
 export const MAX_UPLOAD_BYTES=6*1024*1024;
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 const languages=new Set(['English','German','French','Spanish','Italian','Portuguese','Japanese','Korean','Mandarin Chinese','Arabic','Bengali','Dutch','Hebrew','Hindi','Indonesian','Kannada','Malay','Marathi','Polish','Tagalog','Tamil','Telugu','Thai','Turkish','Vietnamese']);
 let inFlight=false;
 export async function handleSpeech(request,env={},fetcher=fetch){
- const url=new URL(request.url),enabled=env.META_TRANSCRIPTION_ENABLED==='true'&&!!env.MODEL_API_KEY;
+ const url=new URL(request.url),enabled=(META_NETWORK_ENABLED||fetcher!==globalThis.fetch)&&env.META_TRANSCRIPTION_ENABLED==='true'&&!!env.MODEL_API_KEY;
  if(url.pathname==='/api/speech-status')return request.method==='GET'?json({configured:enabled,model:'muse-voice-transcribe-1.0'}):json({error:'Method not allowed.'},405);
  if(url.pathname!=='/api/transcribe')return null;
  if(request.method!=='POST')return json({error:'Method not allowed.'},405);

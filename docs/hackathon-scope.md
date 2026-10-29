@@ -32,3 +32,5 @@ See [Models and their roles](meta-models.md) for the AI plan.
 The longer-term formats — custom video interviews, a life-based game, a mini-series, and a globe of shared events — are described in [Future features](future-features.md).
 
 Connect is also available as a separate interactive preview with a fictional event timeline, globe, and example stories. It makes no model calls and does not use private interview data.
+
+The mock flow also groups answers into an editable, confirmed life event and offers a video interview storyboard with a fictional host, setting, and tone. It does not render video or send model requests. [Flow and adapter details](ai-flow.md).

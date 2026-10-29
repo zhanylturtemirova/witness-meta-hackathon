@@ -22,7 +22,7 @@ The first build focuses on this interview-to-story flow. Connect previews a glob
 
 ## AI behind Witness
 
-The plan is to use **Meta Muse Spark 1.3** for contextual interview questions, follow-ups, and story drafts based on the narrator's answers.
+**Meta Muse Spark 1.3** is the planned model for contextual interviews, life-event extraction, and video interview planning. The server adapter and output contracts are prepared; the app currently uses local mocks with Meta requests paused.
 
 Later, **Muse Voice Transcribe** could turn spoken memories into text, and **Muse Image** could help explore the look of a virtual interviewer and interview setting. These are optional extensions to the text experience.
 
@@ -38,7 +38,9 @@ npm run dev
 
 Open `http://127.0.0.1:4173`. Use **Explore an example** for a fictional concert memory, or start a story of your own.
 
-The browser demo includes an interview, saved answers, review, an editable story, passage-level sources, and Markdown export. It uses prepared questions with a few rule-based follow-ups and assembles the actual answers. The interview and story writing are still in demo mode. Voice recording, playback, WAV download, and a local-server adapter for Meta speech transcription are also available. Stories stay in this browser’s local storage. Recordings stay in memory until downloaded or discarded; they are not saved automatically.
+The browser demo includes a contextual mock interview, editable life events, confirmation, video storyboard planning, and stories with passage-level sources and Markdown export. Mocks use your answers; they make no model calls. Stories stay in this browser’s local storage. Recordings stay in memory until downloaded or discarded.
+
+Try **Explore an example → A second look → Build an event from my answers → Confirm this event → Plan a video interview**. Choose the interviewer, setting, and tone, then create a storyboard. [How the AI flow works](docs/ai-flow.md).
 
 ```bash
 npm test
@@ -55,13 +57,9 @@ The preview uses fictional profiles and explicit event categories. It needs no A
 
 ## Voice answers
 
-Record up to two minutes in English, listen, then choose whether to transcribe. The recording is only sent to Meta when you click **Transcribe with Meta**. Check and edit the transcript before adding it to your answer.
+Record up to two minutes in English, listen, and download the audio. Recording and playback work without credentials. All real Meta requests, including speech transcription, are paused in code. Adding a key or changing `.env` does not enable them.
 
-Recording, playback, and audio download work without Meta credentials. Transcription needs a server API key, model access, and Meta billing. It is disabled until configured.
-
-For local development, copy `.env.example` to `.env`, enter your own `MODEL_API_KEY`, and set `META_TRANSCRIPTION_ENABLED=true` after checking billing. Restart `npm run dev`. Keep `.env` untracked.
-
-The Node server handles `/api/speech-status` and `/api/transcribe`. The private static Site supports local recording but does not run the Node transcription endpoint. A hosted server route and server secret are needed before enabling transcription there.
+The Node server retains the speech adapter for later integration. The static Site supports local recording but needs a hosted server route before live transcription can be enabled.
 
 See [Voice answers](docs/voice-answers.md) for the implementation and limits.
 

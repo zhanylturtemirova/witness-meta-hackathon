@@ -1,3 +1,7 @@
+# Voice requests are paused
+
+All live Meta calls are currently locked in code while Witness uses local mocks. The configuration instructions below describe the retained adapter; an API key and environment flag alone cannot enable it. Recording, playback, and audio download remain available. See [AI flow](ai-flow.md).
+
 # Voice answers
 
 The interview composer offers recording alongside typing. Voice input is English-only for now.

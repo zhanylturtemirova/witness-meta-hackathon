@@ -36,3 +36,5 @@ For future story discovery, model and search choices remain open. Matching shoul
 Try fictional stories with vague dates, conflicting details, and corrected answers. Check whether follow-ups are useful, drafts preserve the narrator's meaning, and source links remain correct after edits. Compare models only when there is a specific quality problem to solve.
 
 Model capabilities and identifiers: [Meta model documentation](https://dev.meta.ai/docs/models).
+
+For video interviews, a game, a mini-series, and a globe of shared experiences, see [Future features](future-features.md). The current browser demo makes no model calls.

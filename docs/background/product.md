@@ -26,4 +26,6 @@ Private interviews stay outside discovery. A person chooses the story or topics 
 
 Voice input could make remembering feel more conversational. Video interviews could offer a choice of fictional interviewer and setting, using a story the narrator has already reviewed. Writing exercises could help people develop their own storytelling skills.
 
-These directions extend the core experience; the first build is the [text interview and editable story](../hackathon-scope.md).
+Other future formats include a game through the narrator’s life and a mini-series. A globe with an event list would let people select a memory and see places associated with similar shared experiences. The narrator chooses the tone and setting of adaptations.
+
+See [Future formats and the globe](../future-features.md). The first build is the [text interview and editable story](../hackathon-scope.md).

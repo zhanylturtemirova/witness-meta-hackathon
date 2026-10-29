@@ -18,7 +18,7 @@ A complete autobiography is one possible outcome. A single meaningful story can 
 
 Choose a memory or a period of your life. Answer a few questions, follow the details that matter, and skip anything you do not want to discuss. Review your answers, then turn them into an editable story with links back to what you said.
 
-The first build focuses on this interview-to-story flow. Sharing, discovery, and video interviews are part of the wider vision.
+The first build focuses on this interview-to-story flow. The wider vision includes a globe of shared experiences, custom video interviews, a game through a life, and a mini-series shaped from the narrator’s memories.
 
 ## AI behind Witness
 
@@ -28,7 +28,28 @@ Later, **Muse Voice Transcribe** could turn spoken memories into text, and **Mus
 
 See [Models and their roles](docs/meta-models.md) for the details.
 
+## Try it locally
+
+You need Node.js 20 or later. There are no package dependencies to install.
+
+```bash
+npm run dev
+```
+
+Open `http://127.0.0.1:4173`. Use **Explore an example** for a fictional concert memory, or start a story of your own.
+
+The browser demo includes an interview, saved answers, review, an editable story, passage-level sources, and Markdown export. It uses prepared questions with a few rule-based follow-ups and assembles the actual answers. Meta API integration is the next step. Stories stay in this browser’s local storage.
+
+```bash
+npm test
+npm run build
+```
+
+The build writes the static app to `dist/`.
+
 ## Explore
+
+- [Future formats and the globe](docs/future-features.md)
 
 - [Product vision](docs/background/product.md)
 - [First build](docs/hackathon-scope.md)

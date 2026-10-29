@@ -28,3 +28,5 @@ Use a fictional memory for the demo and show the full flow, including a correcti
 Opt-in sharing and discovery would help people find stories and people they relate to. Voice input and video interviews would offer other ways to tell those stories. These features should build on the narrator's control over what is shared.
 
 See [Models and their roles](meta-models.md) for the AI plan.
+
+The longer-term formats — custom video interviews, a life-based game, a mini-series, and a globe of shared events — are described in [Future features](future-features.md).

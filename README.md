@@ -30,7 +30,7 @@ See [Models and their roles](docs/meta-models.md) for the details.
 
 ## Try it locally
 
-You need Node.js 20 or later. There are no package dependencies to install.
+You need Node.js 20.12 or later. There are no package dependencies to install.
 
 ```bash
 npm run dev
@@ -38,7 +38,7 @@ npm run dev
 
 Open `http://127.0.0.1:4173`. Use **Explore an example** for a fictional concert memory, or start a story of your own.
 
-The browser demo includes an interview, saved answers, review, an editable story, passage-level sources, and Markdown export. It uses prepared questions with a few rule-based follow-ups and assembles the actual answers. Meta API integration is the next step. Stories stay in this browser’s local storage.
+The browser demo includes an interview, saved answers, review, an editable story, passage-level sources, and Markdown export. It uses prepared questions with a few rule-based follow-ups and assembles the actual answers. The interview and story writing are still in demo mode. Voice recording, playback, WAV download, and a local-server adapter for Meta speech transcription are also available. Stories stay in this browser’s local storage. Recordings stay in memory until downloaded or discarded; they are not saved automatically.
 
 ```bash
 npm test
@@ -46,6 +46,18 @@ npm run build
 ```
 
 The build writes the static app to `dist/`.
+
+## Voice answers
+
+Record up to two minutes in English, listen, then choose whether to transcribe. The recording is only sent to Meta when you click **Transcribe with Meta**. Check and edit the transcript before adding it to your answer.
+
+Recording, playback, and audio download work without Meta credentials. Transcription needs a server API key, model access, and Meta billing. It is disabled until configured.
+
+For local development, copy `.env.example` to `.env`, enter your own `MODEL_API_KEY`, and set `META_TRANSCRIPTION_ENABLED=true` after checking billing. Restart `npm run dev`. Keep `.env` untracked.
+
+The Node server handles `/api/speech-status` and `/api/transcribe`. The private static Site supports local recording but does not run the Node transcription endpoint. A hosted server route and server secret are needed before enabling transcription there.
+
+See [Voice answers](docs/voice-answers.md) for the implementation and limits.
 
 ## Explore
 

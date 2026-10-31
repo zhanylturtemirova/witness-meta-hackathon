@@ -8,14 +8,15 @@ import {handleSpeech} from '../server/transcribe.mjs';
 import {handleAI} from '../server/ai/routes.mjs';
 if(existsSync('.env'))process.loadEnvFile('.env');
 const root = path.resolve('dist');
-const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
+const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg'};
 const server = http.createServer(async (req,res) => {
   try {
     const url = new URL(req.url, 'http://'+req.headers.host);
     if(url.pathname.startsWith('/api/')){
       if(!['127.0.0.1','localhost','[::1]'].includes(url.hostname)){res.writeHead(403);res.end();return;}
-      const request=new Request(url,{method:req.method,headers:req.headers,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});
-      const response=await handleAI(request) || await handleSpeech(request,process.env);
+      const abort=new AbortController();req.on('aborted',()=>abort.abort());res.on('close',()=>{if(!res.writableEnded)abort.abort();});
+      const request=new Request(url,{method:req.method,headers:req.headers,signal:abort.signal,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});
+      const response=await handleAI(request,process.env) || await handleSpeech(request,process.env);
       if(response){res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;}
       res.writeHead(404);res.end();return;
     }

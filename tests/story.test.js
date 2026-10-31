@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newProject,addAnswer,reviseAnswer,createStory,isStale,refreshPassage,exportStory,nextQuestion,validProject} from '../web/domain.js';
+import {newProject,addAnswer,reviseAnswer,createStory,isStale,refreshPassage,exportStory,nextQuestion,validProject,setReviewDraft,reviewDraft,reviewText} from '../web/domain.js';
 test('an answer edit preserves the source used by an existing passage until explicitly refreshed',()=>{
  const p=newProject('turning-point');const a=addAnswer(p,'I moved around 2018, I think.');createStory(p);const s=p.story.passages[0];
  reviseAnswer(p,a.id,'I moved in 2019.');
@@ -16,6 +16,16 @@ test('editable story export keeps the narrator edit and the exact original sourc
 });
 test('follow-up can respond to the previous answer without inventing details',()=>{
  const p=newProject('small-moment');addAnswer(p,'I went to a concert.');assert.match(nextQuestion(p),/sound, sight, or detail/);
+});
+test('review drafts keep unsaved text until the answer is saved',()=>{
+ const p=newProject('small-moment');const a=addAnswer(p,'A quiet afternoon with my sister.');
+ setReviewDraft(p,a.id,'A quiet afternoon with my sister and our neighbour.');
+ assert.equal(a.text,'A quiet afternoon with my sister.');assert.equal(a.revision,1);
+ assert.equal(reviewText(p,a),'A quiet afternoon with my sister and our neighbour.');
+ reviseAnswer(p,a.id,'A quiet afternoon with my sister and our neighbour.');
+ assert.equal(reviewDraft(p,a.id),undefined);
+ assert.equal(reviewText(p,a),'A quiet afternoon with my sister and our neighbour.');
+ assert.equal(validProject(JSON.parse(JSON.stringify(p))),true);
 });
 test('blank answers and broken source links are rejected',()=>{
  const p=newProject('person');assert.throws(()=>addAnswer(p,'   '));assert.equal(p.answers.length,0);assert.throws(()=>createStory(p));

@@ -32,13 +32,27 @@ export function nextQuestion(p) {
 export function addAnswer(p,text) {
   if (!text.trim()) throw new Error('Write an answer first.');
   if(text.length>20000) throw new Error('Please keep each answer under 20,000 characters.');
-  const answer={id:crypto.randomUUID(),question:nextQuestion(p),text:text.trim(),revision:1,history:[],uncertaintyReviewed:false,intent:p.interviewer?.intent||null};
+  const answer={id:crypto.randomUUID(),question:nextQuestion(p),text:text.trim(),revision:1,history:[],uncertaintyReviewed:false,intent:p.interviewer?.intent||null,promptId:p.interviewer?.promptId||null};
   p.answers.push(answer);p.interviewer=null; p.questionIndex++; p.draft=''; p.updatedAt=Date.now(); return answer;
+}
+export function setReviewDraft(p,id,text) {
+  const a=p.answers.find(a=>a.id===id); if(!a) throw new Error('Answer not found.');
+  if(typeof text!=='string') throw new Error('Draft is missing.');
+  if(!p.reviewDrafts)p.reviewDrafts={};
+  p.reviewDrafts[id]=text;
+}
+export function reviewDraft(p,id) { return p.reviewDrafts?.[id]; }
+export function reviewText(p,a) { const d=p.reviewDrafts?.[a.id]; return typeof d==='string'?d:a.text; }
+export function setInterviewer(p,envelope) {
+  if(!envelope||typeof envelope!=='object'||!envelope.result||typeof envelope.result.question!=='string') throw new Error('The interview response is incomplete.');
+  p.interviewer={...envelope.result,provider:envelope.provider||'mock',model:envelope.model||null};
+  p.updatedAt=Date.now(); return p.interviewer;
 }
 export function reviseAnswer(p,id,text) {
   const a=p.answers.find(a=>a.id===id); if(!a) throw new Error('Answer not found.');
   if(!text.trim()) throw new Error('An answer cannot be empty.');
   if(text.length>20000) throw new Error('Please keep each answer under 20,000 characters.');
+  if(p.reviewDrafts)delete p.reviewDrafts[id];
   if(a.text!==text.trim()) {
     a.history.push({revision:a.revision,text:a.text}); a.text=text.trim(); a.revision++; a.uncertaintyReviewed=false;
     p.updatedAt=Date.now();

@@ -1,8 +1,8 @@
 import {MAX_SECONDS,toWav,wavInfo} from './audio.js';
-let recording=null,audioBlob=null,audioUrl='',audioProject=null,transcript='',busy=false,starting=false,tick=null,limit=null;
+let recording=null,audioBlob=null,audioUrl='',audioProject=null,transcript='',transcriptModel='',busy=false,starting=false,tick=null,limit=null;
 let status='Record a memory, then listen before using it.',error='',configured=false,configChecked=false,selectedProject=null;
 let notify=()=>{},apply=()=>{};
-export function voiceMarkup(){return `<div class="voice-box" id="voice-box"><div class="voice-toolbar"><button type="button" class="voice-record" id="voice-record"><svg width="15" height="19" viewBox="0 0 16 20" fill="none" aria-hidden="true"><rect x="5" y="1" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 9a6 6 0 0 0 12 0M8 15v4M5 19h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span id="voice-record-label">Record an answer</span></button><span class="voice-duration" id="voice-duration">Up to 2 min · English</span><label class="voice-upload" id="voice-upload-label">Upload WAV<input type="file" id="voice-upload" accept=".wav,audio/wav" aria-label="Upload a WAV recording"></label></div><p class="voice-status" id="voice-status" role="status"></p><p class="voice-error" id="voice-error" role="alert" hidden></p><div class="voice-preview" id="voice-preview" hidden><audio id="voice-playback" controls aria-label="Listen to your recording"></audio><div class="voice-file-actions"><button type="button" id="voice-transcribe" class="text-button">Transcribe with Meta ↗</button><button type="button" id="voice-download" class="text-button">↓ Save audio</button><button type="button" id="voice-discard" class="text-button">Discard</button></div></div><p class="voice-connection" id="voice-connection">Checking the Meta connection…</p><div class="voice-transcript" id="voice-transcript-box" hidden><label for="voice-transcript">Check your transcript</label><textarea id="voice-transcript" rows="4" maxlength="20000"></textarea><button type="button" class="button outline small" id="voice-use">Add to my answer ↗</button></div></div>`;}
+export function voiceMarkup(){return `<div class="voice-box" id="voice-box"><div class="voice-toolbar"><button type="button" class="voice-record" id="voice-record"><svg width="15" height="19" viewBox="0 0 16 20" fill="none" aria-hidden="true"><rect x="5" y="1" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 9a6 6 0 0 0 12 0M8 15v4M5 19h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span id="voice-record-label">Record an answer</span></button><span class="voice-duration" id="voice-duration">Up to 2 min · English</span><label class="voice-upload" id="voice-upload-label">Upload WAV<input type="file" id="voice-upload" accept=".wav,audio/wav" aria-label="Upload a WAV recording"></label></div><p class="voice-status" id="voice-status" role="status"></p><p class="voice-error" id="voice-error" role="alert" hidden></p><div class="voice-preview" id="voice-preview" hidden><audio id="voice-playback" controls aria-label="Listen to your recording"></audio><div class="voice-file-actions"><button type="button" id="voice-transcribe" class="text-button">Transcribe with Meta ↗</button><button type="button" id="voice-download" class="text-button">↓ Save audio</button><button type="button" id="voice-discard" class="text-button">Discard</button></div></div><p class="voice-connection" id="voice-connection">Checking the Meta connection…</p><div class="voice-transcript" id="voice-transcript-box" hidden><label for="voice-transcript">Check your transcript</label><small class="voice-origin" id="voice-transcript-origin"></small><textarea id="voice-transcript" rows="4" maxlength="20000"></textarea><button type="button" class="button outline small" id="voice-use">Add to my answer ↗</button></div></div>`;}
 function draw(){
  const record=document.querySelector('#voice-record');if(!record)return;
  const active=!!recording,hasAudio=!!audioBlob;
@@ -18,7 +18,7 @@ function draw(){
  document.querySelector('#voice-discard').disabled=busy||active;
  const upload=document.querySelector('#voice-upload');upload.disabled=busy||active||starting;
  document.querySelector('#voice-connection').textContent=configChecked?(configured?'Transcribe sends this recording to Meta. Review the text before adding it.':'Meta transcription is not connected yet. You can still record and save audio.'):'Checking the Meta connection…';
- const box=document.querySelector('#voice-transcript-box');box.hidden=!transcript;
+ const box=document.querySelector('#voice-transcript-box');box.hidden=!transcript;document.querySelector('#voice-transcript-origin').textContent=transcript&&transcriptModel?`Transcribed with Meta · ${transcriptModel}`:'';
  const text=document.querySelector('#voice-transcript');if(document.activeElement!==text)text.value=transcript;
  document.querySelector('#voice-use').disabled=busy||active;
  const form=document.querySelector('#answer-form');if(form)form.querySelector('button[type="submit"]').disabled=active||busy||starting;
@@ -34,8 +34,8 @@ async function stopCapture(keep=true){
  if(keep){try{const wav=toWav(rec.chunks,rec.rate);setAudio(new Blob([wav],{type:'audio/wav'}),rec.project);status='Listen to your recording. Nothing has been sent to Meta.';}catch(err){error=err.message;}}
  draw();
 }
-function setAudio(blob,project){if(audioUrl)URL.revokeObjectURL(audioUrl);audioBlob=blob;audioUrl=URL.createObjectURL(blob);audioProject=project;transcript='';error='';}
-function clearAudio(){document.querySelector('#voice-playback')?.pause();if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl='';audioBlob=null;audioProject=null;transcript='';error='';status='Record a memory, then listen before using it.';draw();}
+function setAudio(blob,project){if(audioUrl)URL.revokeObjectURL(audioUrl);audioBlob=blob;audioUrl=URL.createObjectURL(blob);audioProject=project;transcript='';transcriptModel='';error='';}
+function clearAudio(){document.querySelector('#voice-playback')?.pause();if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl='';audioBlob=null;audioProject=null;transcript='';transcriptModel='';error='';status='Record a memory, then listen before using it.';draw();}
 async function startCapture(){
  if(recording){await stopCapture();return;}if(busy||starting)return;
  if(audioBlob){error='Save or discard the current recording before starting another.';draw();return;}
@@ -62,7 +62,7 @@ async function transcribe(){
   let data;try{data=await res.json();}catch{throw Error('The transcription server did not respond correctly. Your recording is still here.');}
   if(!res.ok)throw Error(data.error||'Transcription failed. Your recording is still here.');
   if(typeof data.transcript!=='string'||!data.transcript.trim())throw Error('No speech was recognised. Listen to the recording or try again.');
-  transcript=data.transcript;status='Your transcript is ready. Check it before adding it to your answer.';
+  transcript=data.transcript;transcriptModel=typeof data.model==='string'?data.model:'';status='Your transcript is ready. Check it before adding it to your answer.';
  }catch(err){error=err.name==='TimeoutError'?'Transcription took too long. Your recording is still here.':err.message;status='Your recording is still available. You can retry or save it.';}
  finally{busy=false;draw();}
 }

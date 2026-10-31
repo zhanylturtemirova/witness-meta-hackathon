@@ -17,7 +17,65 @@ export function mockInterview(input){
  const candidate=candidates.find(([intent,q])=>!used.has(intent)&&!asked.includes(q))||['wrap_up','Is there anything else you want to add, or are you ready to take a look at your event?'];
  return {question:candidate[1],intent:candidate[0],sourceRefs,enoughMaterial:ready,suggestedNextStep:ready?'review_event':'continue'};
 }
+// Deterministic demo checks, not a semantic truth detector.
+function approximateDates(answers){
+ const dates=new Map();
+ for(const a of answers)for(const match of a.text.matchAll(/\b(?:around|about|approximately|sometime in)\s+((?:19|20)\d{2})\b/gi))dates.set(match[1],match[0]);
+ return dates;
+}
+export function mockVerifyEvent(candidate,answers){
+ const issues=[];
+ const text=answers.map(a=>a.text).join(' '),low=text.toLowerCase();
+ const refs=answerRefs(answers),approx=approximateDates(answers);
+ for(const field of ['dateText','title','summary']){
+  const value=String(candidate[field]??'');
+  for(const sentence of value.split(/(?<=[.!?])\s+/)){
+   for(const year of approx.keys()){
+    if(new RegExp('\\b'+year+'\\b').test(sentence)&&!hasUncertainty({text:sentence})){
+     issues.push({field,statement:sentence.slice(0,2000),answerRefs:refs,reason:'certainty_overreach'});break;
+    }
+   }
+  }
+ }
+ if(candidate.dateText&&!text.includes(candidate.dateText))issues.push({field:'dateText',statement:candidate.dateText,answerRefs:refs,reason:'invented_fact'});
+ if(candidate.location&&!low.includes(String(candidate.location).toLowerCase()))issues.push({field:'location',statement:candidate.location,answerRefs:refs,reason:'invented_fact'});
+ for(const person of candidate.people||[])if(!low.includes(String(person).toLowerCase()))issues.push({field:'people',statement:person,answerRefs:refs,reason:'invented_fact'});
+ for(const field of ['title','summary']){
+  for(const year of (String(candidate[field]||'').match(/\b(?:19|20)\d{2}\b/g)||[])){
+   if(!text.includes(year)&&!issues.some(i=>i.field===field&&i.statement===year))issues.push({field,statement:year,answerRefs:refs,reason:'contradiction'});
+  }
+ }
+ if(answers.some(hasUncertainty)&&!hasUncertainty({text:String(candidate.summary??'')})&&!issues.some(i=>i.field==='summary'&&i.reason==='certainty_overreach')){
+  const statement=(String(candidate.summary).split(/(?<=[.!?])\s/)[0]||String(candidate.summary)).slice(0,2000);
+  issues.push({field:'summary',statement,answerRefs:refs,reason:'certainty_overreach'});
+ }
+ return {supported:!issues.length,issues};
+}
+function mockRepairEvent(input){
+ const base=input.repair.candidate;
+ const candidate={...base,people:[...(base.people||[])],themes:[...(base.themes||[])],detailsToConfirm:[...(base.detailsToConfirm||[])]};
+ for(const issue of input.repair.issues){
+  if(issue.reason==='invented_fact'&&(issue.field==='dateText'||issue.field==='location')){
+   if(candidate[issue.field]===issue.statement){candidate[issue.field]=null;candidate.detailsToConfirm.push(`Removed an unsupported ${issue.field==='dateText'?'date':'place'}.`);}
+  }else if(issue.reason==='invented_fact'&&issue.field==='people'){
+   candidate.people=candidate.people.filter(p=>p!==issue.statement);candidate.detailsToConfirm.push('Removed an unsupported name.');
+  }else if(issue.reason==='certainty_overreach'&&issue.field==='summary'){
+   // Use the actual answers instead of adding a generic disclaimer to a claim.
+   candidate.summary=input.answers.map(a=>a.text).join('\n\n').slice(0,6000);
+  }else if(issue.reason==='certainty_overreach'&&issue.field==='dateText'){
+   const year=String(candidate.dateText).match(/\b(?:19|20)\d{2}\b/)?.[0];
+   candidate.dateText=approximateDates(input.answers).get(year)||null;
+  }else if(issue.reason==='certainty_overreach'&&issue.field==='title'){
+   for(const [year,date] of approximateDates(input.answers))candidate.title=candidate.title.replace(new RegExp('\\b'+year+'\\b','g'),date);
+  }else if(issue.reason==='contradiction'&&(issue.field==='dateText'||issue.field==='location')){
+   candidate[issue.field]=null;candidate.detailsToConfirm.push(`Removed a ${issue.field==='dateText'?'date':'place'} that contradicts the answers.`);
+  }
+ }
+ candidate.sourceRefs=answerRefs(input.answers);
+ return candidate;
+}
 export function mockEvent(input){
+ if(input.repair)return mockRepairEvent(input);
  const text=input.answers.map(a=>a.text).join(' '),first=input.answers[0].text;
  const date=text.match(/\b(?:(?:around|about|approximately|sometime in)\s+)?(?:19|20)\d{2}\b/i)?.[0]||null;
  const location=text.match(/\b(?:in|to|near)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b/)?.[1]||null;
@@ -33,3 +91,11 @@ export function mockVideo(input){
  return {title:input.event.title,logline:'A conversation built from the interview answers you reviewed.',scenes};
 }
 export async function runMockTask(task,input){validateAIInput(task,input);const result=task==='interview'?mockInterview(input):task==='event'?mockEvent(input):mockVideo(input);return {provider:'mock',model:null,result:validateAIResult(task,result,input.answers)};}
+export async function mockEventGenerate(input,repair){
+ const inp=repair?{...input,repair}:input;
+ validateAIInput('event',inp);
+ return {provider:'mock',model:null,result:mockEvent(inp)};
+}
+export async function mockEventVerify(candidate,answers){
+ return mockVerifyEvent(candidate,answers);
+}

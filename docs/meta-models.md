@@ -4,10 +4,10 @@ The text experience is designed around one main model. Other models are options 
 
 | Model | Role in Witness | Scope |
 | --- | --- | --- |
-| **Muse Spark 1.3** (`muse-spark-1.3`) | Ask contextual questions, structure life events, and plan video interviews from approved material | Request adapter prepared; local mocks active |
+| **Muse Spark 1.3** (`muse-spark-1.3`) | Ask contextual questions, structure life events, and plan video interviews from approved material | Live interviews and events on the local server when configured; video plans use local mocks |
 | **Muse Wonder** (`muse-wonder-1.0`) | Explore whether a separate review step can better catch unsupported details in a draft | Optional experiment |
-| **Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) | Turn spoken memories into text for the narrator to review | Local recording and server adapter; live requests paused in code |
-| **Muse Image** (`muse-image-1.0`) | Explore visual concepts for a fictional interviewer and interview setting | Future visual exploration |
+| **Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) | Turn spoken memories into text for the narrator to review | Live on the local server when configured; local recording otherwise |
+| **Muse Image** (`muse-image-1.0`) | Illustrate approved interview excerpts for the memory film | Live server adapter and per-scene generation; requires live AI configuration |
 
 [Muse Code](https://dev.meta.ai/docs/muse-code) is also an optional development assistant. It is separate from the AI that interviews the narrator.
 
@@ -37,4 +37,4 @@ Try fictional stories with vague dates, conflicting details, and corrected answe
 
 Model capabilities and identifiers: [Meta model documentation](https://dev.meta.ai/docs/models).
 
-For video interviews, a game, a mini-series, and a globe of shared experiences, see [Future features](future-features.md). The browser demo makes no model calls by default. All real Meta calls are paused in code, including local speech transcription. See [Interview → event → video plan](ai-flow.md).
+For video interviews, a game, a mini-series, and a globe of shared experiences, see [Future features](future-features.md). The browser demo makes no model calls by default. Live interview, event, image, and transcription requests each require explicit local server configuration. See [Interview → event → video plan](ai-flow.md).

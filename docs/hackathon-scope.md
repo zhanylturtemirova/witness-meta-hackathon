@@ -33,4 +33,4 @@ The longer-term formats — custom video interviews, a life-based game, a mini-s
 
 Connect is also available as a separate interactive preview with a fictional event timeline, globe, and example stories. It makes no model calls and does not use private interview data.
 
-The mock flow also groups answers into an editable, confirmed life event and offers a video interview storyboard with a fictional host, setting, and tone. It does not render video or send model requests. [Flow and adapter details](ai-flow.md).
+The flow also groups answers into an editable, confirmed life event and offers a video interview storyboard with a fictional host, setting, and tone. The browser can also export an illustrated film from scene images, narrator subtitles, and optional uploaded narration, without a video service. Scenes can use images generated with Meta Muse Image or uploaded images. [Flow and adapter details](ai-flow.md).

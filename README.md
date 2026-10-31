@@ -16,15 +16,15 @@ A complete autobiography is one possible outcome. A single meaningful story can 
 
 ## The first experience
 
-Choose a memory or a period of your life. Answer a few questions, follow the details that matter, and skip anything you do not want to discuss. Review your answers, then turn them into an editable story with links back to what you said.
+Choose a memory or a period of your life. Answer a few questions, follow the details that matter, and skip anything you do not want to discuss. Witness offers an optional new reflection prompt every three answers: déjà vu, a happy memory, finding your calling, and other threads. Use **Ask me something** whenever you need a starting point. Explore it in the current conversation or begin a separate story. Review your answers, then turn them into an editable story with links back to what you said.
 
 The first build focuses on this interview-to-story flow. Connect previews a globe of shared experiences using fictional stories. The wider vision includes real opt-in discovery, custom video interviews, a game through a life, and a mini-series shaped from the narrator’s memories.
 
 ## AI behind Witness
 
-**Meta Muse Spark 1.3** is the planned model for contextual interviews, life-event extraction, and video interview planning. The server adapter and output contracts are prepared; the app currently uses local mocks with Meta requests paused.
+**Meta Muse Spark 1.3** is the model for contextual interviews and life-event extraction. The app uses local mocks by default and can use live interview/event requests on the local server when deliberately enabled. Video planning stays mock-only.
 
-Later, **Muse Voice Transcribe** could turn spoken memories into text, and **Muse Image** could help explore the look of a virtual interviewer and interview setting. These are optional extensions to the text experience.
+**Muse Image 1.0** creates illustrations from a selected, approved interview scene. Generate one image at a time, review it, and use it in the illustrated film. **Muse Voice Transcribe** turns recorded answers into editable text when the local server enables it.
 
 See [Models and their roles](docs/meta-models.md) for the details.
 
@@ -38,9 +38,9 @@ npm run dev
 
 Open `http://127.0.0.1:4173`. Use **Explore an example** for a fictional concert memory, or start a story of your own.
 
-The browser demo includes a contextual mock interview, editable life events, confirmation, video storyboard planning, and stories with passage-level sources and Markdown export. Mocks use your answers; they make no model calls. Stories stay in this browser’s local storage. Recordings stay in memory until downloaded or discarded.
+The browser demo includes a contextual interview, editable life events, confirmation, video storyboard planning, illustrated memory films, and stories with passage-level sources and Markdown export. Mocks are the default and make no model calls; live interview/event requests are disabled by default. Stories stay in this browser’s local storage. Recordings stay in memory until downloaded or discarded.
 
-Try **Explore an example → A second look → Build an event from my answers → Confirm this event → Plan a video interview**. Choose the interviewer, setting, and tone, then create a storyboard. [How the AI flow works](docs/ai-flow.md).
+Try **Explore an example → A second look → Build an event from my answers → Confirm this event → Preview the script**. Choose the interviewer, setting, and tone, then create a storyboard. Review it, add an image for each scene and optional narration, and choose **Create film** to export a video with slow camera movement, dissolves, and subtitles. Choose **Generate scene with Meta** for each scene, or upload your own image. Each click requests one image using the configured Meta account, and each result names its model. Download generated images before leaving the page. [How the AI flow works](docs/ai-flow.md).
 
 ```bash
 npm test
@@ -57,9 +57,9 @@ The preview uses fictional profiles and explicit event categories. It needs no A
 
 ## Voice answers
 
-Record up to two minutes in English, listen, and download the audio. Recording and playback work without credentials. All real Meta requests, including speech transcription, are paused in code. Adding a key or changing `.env` does not enable them.
+Record up to two minutes in English, listen, and download the audio. Recording and playback work without credentials. Live interview and event requests need `MODEL_API_KEY` plus `META_AI_ENABLED=true` in the server `.env`; anything else stays on mocks. Image generation uses the same live server configuration; set `META_IMAGE_ENABLED=false` to disable it separately. Transcription needs `MODEL_API_KEY` plus `META_TRANSCRIPTION_ENABLED=true`, and names its model on success.
 
-The Node server retains the speech adapter for later integration. The static Site supports local recording but needs a hosted server route before live transcription can be enabled.
+The static Site supports local recording but needs a hosted server route before live transcription can be enabled there.
 
 See [Voice answers](docs/voice-answers.md) for the implementation and limits.
 
@@ -71,3 +71,13 @@ See [Voice answers](docs/voice-answers.md) for the implementation and limits.
 - [First build](docs/hackathon-scope.md)
 - [Technical outline](docs/background/technical-outline.md)
 - [Stories, privacy, and control](docs/background/data-and-consent.md)
+
+## Work with Muse Code
+
+With Muse Code installed, put your Meta API key in the untracked `.env` as `MODEL_API_KEY`, then run:
+
+```bash
+npm run muse
+```
+
+The launcher opens Muse Code in this project and passes the key through the process environment as `META_API_KEY`. It does not print or store another copy of the key. Muse Code requests use Meta billing; starting it does not enable live model calls in the Witness app.

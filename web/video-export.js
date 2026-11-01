@@ -1,5 +1,9 @@
 import {imageCapability,generateSceneImage} from './scene-images.js';
-import {videoStale} from './event-model.js';
+import {videoStale,approveSceneIllustration,sceneApprovalValid} from './event-model.js';
+import {getRecordingMeta} from './domain.js';
+import {mediaSave,mediaLoad,MEDIA_IMAGES,MEDIA_RECORDINGS} from './media-store.js';
+const fmtDur=s=>typeof s!=='number'||!(s>=0)?'–':`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+const newMediaId=()=>crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);
 export function splitVideoText(text,maxChars=190){
  const words=String(text||'').trim().split(/\s+/).filter(Boolean),pages=[];let page='';
  for(const word of words){for(let offset=0;offset<word.length;offset+=maxChars){const part=word.slice(offset,offset+maxChars);if(page&&page.length+part.length+1>maxChars){pages.push(page);page='';}page+=(page?' ':'')+part;}}
@@ -28,11 +32,12 @@ export function filmFrame(cards,elapsed){
  let start=0;for(let i=0;i<cards.length;i++){if(elapsed<start+cards[i].seconds||i===cards.length-1)return {index:i,card:cards[i],local:Math.max(0,Math.min(cards[i].seconds,elapsed-start)),start};start+=cards[i].seconds;}
 }
 const escapeHTML=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function videoExportMarkup(project){return `<section class="clip-maker" aria-labelledby="clip-heading"><p class="eyebrow">YOUR MEMORY, IN PICTURES</p><h2 id="clip-heading">A little <em>film.</em></h2><p>Scenes from your memory, with gentle camera movement and your words as subtitles. Generate scene illustrations with Meta or add your own images.</p><canvas id="clip-canvas" width="1280" height="720" role="img" aria-label="Preview of your illustrated memory film"></canvas><button id="clip-preview" class="text-button" type="button">Preview motion ▷</button><p id="clip-image-note" class="muted">Images illustrate your story; they are not evidence of what happened.</p><p id="clip-meta-info" class="muted">Checking Meta image access…</p><form id="clip-form"><fieldset id="clip-controls"><div class="clip-scenes">${project.video.scenes.map((scene,i)=>`<div class="clip-scene"><img id="clip-thumb-${i}" alt="Scene ${i+1} illustration" hidden><label for="clip-image-${i}">Scene ${i+1} · ${escapeHTML(scene.title)}</label><input id="clip-image-${i}" data-scene-image="${i}" type="file" accept="image/jpeg,image/png,image/webp"><small>${escapeHTML(scene.narratorText.slice(0,110))}…</small><label for="clip-direction-${i}">Image directions · optional</label><textarea id="clip-direction-${i}" rows="2" maxlength="1000" placeholder="A detail or visual style to focus on"></textarea><button type="button" class="text-button" data-generate-scene="${i}" disabled>Generate scene ${i+1} with Meta</button><small id="clip-origin-${i}">No image yet</small><a id="clip-save-image-${i}" class="text-button" hidden download="witness-scene-${i+1}.png">Download image ↓</a></div>`).join('')}</div><div class="clip-inputs"><div><label for="clip-audio">Your narration · optional</label><input id="clip-audio" type="file" accept="audio/*"><small>Up to 3 minutes, 20 MB. Starts with the film; subtitles use the pace below. Without audio, the film is silent.</small></div><div><label for="clip-pace">Subtitle pace</label><select id="clip-pace"><option value="3">3 seconds · quick</option><option value="5" selected>5 seconds · steady</option><option value="8">8 seconds · unhurried</option></select></div></div><label class="checkbox-label clip-consent"><input id="clip-approved" type="checkbox" required> I reviewed the images and words, and have permission to use the media I add.</label><button id="clip-create" class="button primary" type="submit">Create film ↓</button></fieldset><button id="clip-cancel" class="text-button" type="button" hidden>Cancel film</button></form><button id="clip-image-cancel" class="text-button" type="button" hidden>Cancel image request</button><p id="clip-status" role="status" aria-live="polite">Preparing your scenes…</p><div id="clip-result" hidden><video id="clip-playback" controls playsinline preload="metadata" aria-label="Your exported memory film" webkit-playsinline></video><a id="clip-download" class="button outline">Download film ↓</a><p class="muted">Download before leaving this page. Scene images, audio, and video previews are not saved with the story.</p></div></section>`;}
+export function videoExportMarkup(project){return `<section class="clip-maker" aria-labelledby="clip-heading"><p class="eyebrow">YOUR MEMORY, IN PICTURES</p><h2 id="clip-heading">A little <em>film.</em></h2><p>Scenes from your memory, with gentle camera movement and your words as subtitles. Generate scene illustrations with Meta or add your own images.</p><canvas id="clip-canvas" width="1280" height="720" role="img" aria-label="Preview of your illustrated memory film"></canvas><button id="clip-preview" class="text-button" type="button">Preview motion ▷</button><p id="clip-image-note" class="muted">Images illustrate your story; they are not evidence of what happened.</p><p id="clip-meta-info" class="muted">Checking Meta image access…</p><form id="clip-form"><fieldset id="clip-controls"><div class="clip-scenes">${project.video.scenes.map((scene,i)=>`<div class="clip-scene"><img id="clip-thumb-${i}" alt="Scene ${i+1} illustration" hidden><label for="clip-image-${i}">Scene ${i+1} · ${escapeHTML(scene.title)}</label><input id="clip-image-${i}" data-scene-image="${i}" type="file" accept="image/jpeg,image/png,image/webp"><small>${escapeHTML(scene.narratorText.slice(0,110))}…</small><p class="clip-approval" id="clip-approval-${i}" role="status"></p><button type="button" class="text-button" data-approve-scene="${i}">Approve this excerpt for illustration</button><label for="clip-direction-${i}">Image directions · optional</label><textarea id="clip-direction-${i}" rows="2" maxlength="1000" placeholder="A detail or visual style to focus on"></textarea><button type="button" class="text-button" data-generate-scene="${i}" disabled>Generate scene ${i+1} with Meta</button><small id="clip-origin-${i}">No image yet</small><a id="clip-save-image-${i}" class="text-button" hidden download="witness-scene-${i+1}.png">Download image ↓</a></div>`).join('')}</div><div class="clip-inputs"><div><label for="clip-narration">Narration · a saved interview recording (optional)</label><select id="clip-narration"><option value="">No narration</option>${(project.recordings||[]).map((r,i)=>`<option value="${r.id}">Recording ${i+1} · ${fmtDur(r.durationSec)} · ${escapeHTML(r.question.slice(0,60))}</option>`).join('')}</select><label for="clip-audio">Or upload narration audio</label><input id="clip-audio" type="file" accept="audio/*"><small>Up to 3 minutes, 20 MB. A selected recording is used instead of an uploaded file. Without audio, the film is silent.</small></div><div><label for="clip-pace">Subtitle pace</label><select id="clip-pace"><option value="3">3 seconds · quick</option><option value="5" selected>5 seconds · steady</option><option value="8">8 seconds · unhurried</option></select><small>Subtitle timing is approximate — titles are shown per scene, not synced to speech.</small></div></div><label class="checkbox-label clip-consent"><input id="clip-approved" type="checkbox" required> I reviewed the images and words, and have permission to use the media I add.</label><button id="clip-create" class="button primary" type="submit">Create film ↓</button></fieldset><button id="clip-cancel" class="text-button" type="button" hidden>Cancel film</button></form><button id="clip-image-cancel" class="text-button" type="button" hidden>Cancel image request</button><p id="clip-status" role="status" aria-live="polite">Preparing your scenes…</p><div id="clip-result" hidden><video id="clip-playback" controls playsinline preload="metadata" aria-label="Your exported memory film" webkit-playsinline></video><a id="clip-download" class="button outline">Download film ↓</a><p class="muted">Scene images stay saved with this story. Download the film to keep a copy.</p></div></section>`;}
 let cleanup=null;
 export function unmountVideoExport(){cleanup?.();cleanup=null;}
-export function mountVideoExport(project){
+export function mountVideoExport(project,opts={}){
  unmountVideoExport();const form=document.querySelector('#clip-form');if(!form)return;
+ const onSave=opts.onSave||(()=>{});
  const canvas=document.querySelector('#clip-canvas'),ctx=canvas.getContext('2d');
  const status=document.querySelector('#clip-status'),controls=document.querySelector('#clip-controls'),cancel=document.querySelector('#clip-cancel');
  const imageInputs=[...document.querySelectorAll('[data-scene-image]')],previewButton=document.querySelector('#clip-preview'),audioInput=document.querySelector('#clip-audio'),pace=document.querySelector('#clip-pace');
@@ -64,10 +69,31 @@ export function mountVideoExport(project){
   let y=655-(lines.length-1)*43;ctx.fillStyle='#fffaf0';for(const line of lines){ctx.fillText(line,60,y);y+=43;}
   ctx.fillStyle='#dd6148';ctx.fillRect(0,716,1280*Math.min(1,elapsed/duration),4);
  }
+ function hasNarrationInput(){return !!(document.querySelector('#clip-narration')?.value||audioInput.files?.length);}
+ function approvalText(i){
+  if(videoStale(project))return 'Sources changed — review your event, then approve again.';
+  if(sceneApprovalValid(project,i))return 'Excerpt approved for illustration.';
+  return 'Approve the excerpt above before generating.';
+ }
+ function refreshApprovals(){
+  project.video.scenes.forEach((scene,i)=>{
+   const label=document.querySelector('#clip-approval-'+i),approve=document.querySelector(`[data-approve-scene="${i}"]`),gen=document.querySelector(`[data-generate-scene="${i}"]`);
+   if(label)label.textContent=approvalText(i);
+   const valid=sceneApprovalValid(project,i);
+   if(approve)approve.hidden=valid||videoStale(project);
+   if(gen)gen.disabled=!imageLive||!valid||exporting||!!imageController||!!loading;
+  });
+ }
+ async function persistSceneImage(index,blob,kind,provider,model){
+  const id=newMediaId();
+  const saved=await mediaSave(MEDIA_IMAGES,{id,projectId:project.id,blob});
+  project.video.scenes[index].image={id,kind,provider,model,createdAt:Date.now()};
+  onSave();return saved;
+ }
  function stopPreview(){clearInterval(previewTicker);previewTicker=null;previewButton.textContent='Preview motion ▷';}
  function preview(){
   stopPreview();try{const cards=filmCards(project,Number(pace.value)),duration=cards.reduce((n,c)=>n+c.seconds,0);drawAt(cards,0,duration);
-   const missing=images.filter(x=>!x).length;status.textContent=loading?'Opening scene images…':missing?`Add an image for each scene (${images.length-missing}/${images.length} ready).`:`${images.length} illustrated scenes · ${duration} seconds${audioInput.files?.length?' minimum':''}. ${audioInput.files?.length?'Your audio starts at the beginning.':'Silent unless you add narration.'} Export runs in real time.`;
+   const missing=images.filter(x=>!x).length,heard=hasNarrationInput();status.textContent=loading?'Opening scene images…':missing?`Add an image for each scene (${images.length-missing}/${images.length} ready).`:`${images.length} illustrated scenes · ${duration} seconds${heard?' minimum':''}. ${heard?'Your audio starts at the beginning.':'Silent unless you add narration.'} Export runs in real time.`;
    document.querySelector('#clip-create').disabled=!!missing||!!loading||!!imageController;previewButton.disabled=!!missing||!!loading||!!imageController;
   }catch(err){status.textContent=err.message;document.querySelector('#clip-create').disabled=true;previewButton.disabled=true;}
  }
@@ -82,10 +108,11 @@ export function mountVideoExport(project){
  for(const input of imageInputs)input.onchange=async()=>{
   const index=Number(input.dataset.sceneImage),file=input.files?.[0];if(!file)return;
   if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024){input.value='';status.textContent='Choose a JPEG, PNG, or WebP image under 10 MB.';return;}
-  const url=URL.createObjectURL(file);imageUrls.push(url);try{await loadImage(index,url);document.querySelector('#clip-origin-'+index).textContent='Your uploaded image';document.querySelector('#clip-save-image-'+index).hidden=true;}catch(err){status.textContent=err.message;}
+  const url=URL.createObjectURL(file);imageUrls.push(url);try{await loadImage(index,url);document.querySelector('#clip-origin-'+index).textContent='Your uploaded image';document.querySelector('#clip-save-image-'+index).hidden=true;const saved=await persistSceneImage(index,file,'upload','upload','');if(!saved.persistent)status.textContent=saved.error;}catch(err){status.textContent=err.message;}
  };
  const generationButtons=[...document.querySelectorAll('[data-generate-scene]')],imageCancel=document.querySelector('#clip-image-cancel');
- imageCapability().then(available=>{if(disposed)return;imageLive=available;document.querySelector('#clip-meta-info').textContent=available?'Meta Muse Image · one image per click, using your Meta API credits. Only this scene excerpt and your directions are sent. Download generated images before leaving.':'Meta image generation needs the local server with a configured API key and live AI enabled. You can still add your own images.';generationButtons.forEach(b=>b.disabled=!available||exporting||!!imageController);});
+ imageCapability().then(available=>{if(disposed)return;imageLive=available;document.querySelector('#clip-meta-info').textContent=available?'Meta Muse Image · one image per click, using your Meta API credits. Only this scene excerpt and your directions are sent. Generated images are saved with this story.':'Meta image generation needs the local server with a configured API key and live AI enabled. You can still add your own images.';refreshApprovals();});
+ for(const button of [...document.querySelectorAll('[data-approve-scene]')])button.onclick=()=>{try{approveSceneIllustration(project,Number(button.dataset.approveScene));onSave();refreshApprovals();status.textContent='Excerpt approved. You can generate its illustration.';}catch(err){status.textContent=err.message;}};
  imageCancel.onclick=()=>imageController?.abort();
  for(const button of generationButtons)button.onclick=async()=>{
   if(!imageLive||imageController||exporting||loading)return;
@@ -98,12 +125,13 @@ export function mountVideoExport(project){
    const url=URL.createObjectURL(generated.blob);imageUrls.push(url);await loadImage(index,url);if(disposed)return;
    document.querySelector('#clip-origin-'+index).textContent='Generated with Meta · '+generated.model;
    const download=document.querySelector('#clip-save-image-'+index);download.href=url;download.hidden=false;
-   message=`Scene ${index+1} created with Meta Muse Image. Review the illustration before approving the film.`;
+   const saved=await persistSceneImage(index,generated.blob,'meta',generated.provider,generated.model);
+   message=saved.persistent?`Scene ${index+1} created with Meta Muse Image and saved with this story. Review the illustration before approving the film.`:`Scene ${index+1} created. ${saved.error||'Media storage is unavailable.'} Download a copy below.`;
   }catch(err){message=err.message;}
   finally{imageController=null;if(!disposed){controls.disabled=false;imageCancel.hidden=true;preview();status.textContent=message||'Image request cancelled. Meta may still finish processing it.';}}
  };
  previewButton.onclick=()=>{if(previewTicker){stopPreview();return;}const cards=filmCards(project,Number(pace.value)),duration=cards.reduce((n,c)=>n+c.seconds,0),start=performance.now();previewButton.textContent='Pause preview';previewTicker=setInterval(()=>drawAt(cards,((performance.now()-start)/1000)%duration,duration),1000/24);};
- pace.onchange=preview;audioInput.onchange=preview;
+ pace.onchange=preview;audioInput.onchange=preview;document.querySelector('#clip-narration').onchange=preview;
  const cancelExport=()=>{if(!active)return;active=false;if(recorder?.state!=='inactive')recorder?.stop();stopResources();if(!disposed){cancel.hidden=true;status.textContent='Film cancelled. Your story and script are unchanged.';}};
  cancel.onclick=cancelExport;
  form.onsubmit=async event=>{
@@ -112,7 +140,17 @@ export function mountVideoExport(project){
   let cards;try{cards=filmCards(project,Number(pace.value));}catch(err){status.textContent=err.message;return;}
   playback.pause();previewButton.disabled=true;active=true;exporting=true;controls.disabled=true;cancel.hidden=false;result.hidden=true;let narration=null;
   try{
-   const file=audioInput.files?.[0];if(file){if(file.size>20*1024*1024)throw Error('Choose an audio recording under 20 MB.');audioContext=new AudioContext();await audioContext.resume();narration=await audioContext.decodeAudioData(await file.arrayBuffer());if(!active||disposed)return;if(narration.duration>180)throw Error('Choose an audio recording up to three minutes long.');}
+   const narrationChoice=document.querySelector('#clip-narration')?.value||'';
+   let narrationBytes=null;
+   if(narrationChoice){
+    const meta=getRecordingMeta(project,narrationChoice);
+    if(!meta)throw Error('That recording is no longer saved. Choose another narration or none.');
+    const record=await mediaLoad(MEDIA_RECORDINGS,narrationChoice);
+    if(!active||disposed)return;
+    if(!record?.blob)throw Error('The selected recording could not be opened. Choose another narration or none.');
+    narrationBytes=await record.blob.arrayBuffer();
+   }else{const file=audioInput.files?.[0];if(file){if(file.size>20*1024*1024)throw Error('Choose an audio recording under 20 MB.');narrationBytes=await file.arrayBuffer();}}
+   if(narrationBytes){audioContext=new AudioContext();await audioContext.resume();narration=await audioContext.decodeAudioData(narrationBytes);if(!active||disposed)return;if(narration.duration>180)throw Error('Choose an audio recording up to three minutes long.');}
    const duration=Math.max(cards.reduce((n,c)=>n+c.seconds,0),narration?.duration||0);
    drawAt(cards,0,duration);stream=canvas.captureStream(24);
    if(narration){const destination=audioContext.createMediaStreamDestination();audioSource=audioContext.createBufferSource();audioSource.buffer=narration;audioSource.connect(destination);for(const track of destination.stream.getAudioTracks())stream.addTrack(track);}
@@ -127,5 +165,22 @@ export function mountVideoExport(project){
   }catch(err){if(!disposed&&active)status.textContent=err.message;}
   finally{stopResources();exporting=false;if(!disposed){active=false;controls.disabled=false;previewButton.disabled=false;cancel.hidden=true;}}
  };
+ refreshApprovals();
+ (async()=>{
+  const pending=project.video.scenes.map((scene,i)=>scene.image?.id?{scene,i}:null).filter(Boolean);
+  if(!pending.length)return;
+  loading+=pending.length;preview();
+  try{
+   for(const {scene,i} of pending){
+    if(disposed)return;
+    const record=await mediaLoad(MEDIA_IMAGES,scene.image.id);
+    if(disposed)return;
+    if(record?.blob){
+     const url=URL.createObjectURL(record.blob);imageUrls.push(url);
+     try{await loadImage(i,url);document.querySelector('#clip-origin-'+i).textContent=scene.image.kind==='meta'?`Generated with Meta · ${scene.image.model}`:'Your uploaded image';if(scene.image.kind==='meta'){const download=document.querySelector('#clip-save-image-'+i);download.href=url;download.hidden=false;}}catch{}
+    }else document.querySelector('#clip-origin-'+i).textContent='A saved image is unavailable in this browser.';
+   }
+  }finally{loading-=pending.length;if(!disposed){refreshApprovals();preview();}}
+ })();
  cleanup=()=>{disposed=true;imageController?.abort();imageSeq=imageSeq.map(n=>n+1);stopPreview();cancelExport();stopResources();imageUrls.forEach(url=>URL.revokeObjectURL(url));if(outputUrl)URL.revokeObjectURL(outputUrl);playback.pause();playback.removeAttribute('src');};
 }

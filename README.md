@@ -14,6 +14,8 @@ An AI interviewer follows the conversation, asks thoughtful questions, and helps
 
 A complete autobiography is one possible outcome. A single meaningful story can be enough.
 
+Witness is also designed as an ongoing journal: optional questions help people record everyday life. Selected entries from a conversation can become an editable weekly story, with sources for each paragraph. Daily/monthly stories and real-user matching remain planned. Specific events stay in their own collection. Connect is intended to start from one of those events and reveal related stories across the globe, whether people attended the same occasion or had a similar experience in another place and time. [Journal and Connect](docs/journal-and-connect.md) describes the flow.
+
 ## The first experience
 
 Choose a memory or a period of your life. Answer a few questions, follow the details that matter, and skip anything you do not want to discuss. Witness offers an optional new reflection prompt every three answers: déjà vu, a happy memory, finding your calling, and other threads. Use **Ask me something** whenever you need a starting point. Explore it in the current conversation or begin a separate story. Review your answers, then turn them into an editable story with links back to what you said.
@@ -28,6 +30,10 @@ The first build focuses on this interview-to-story flow. Connect previews a glob
 
 See [Models and their roles](docs/meta-models.md) for the details.
 
+The interviewer, archivist, editor and verifier are configured in [agents/](agents/README.md). The server uses these role files directly; they share Muse Spark with separate instructions.
+
+Run `npm run eval:agents` to rehearse the roles on fictional interviews without network calls. [Agent evaluation](docs/agent-evaluation.md) explains the report, human review and a separately enabled live check with a call budget.
+
 ## Try it locally
 
 You need Node.js 20.12 or later. There are no package dependencies to install.
@@ -36,11 +42,15 @@ You need Node.js 20.12 or later. There are no package dependencies to install.
 npm run dev
 ```
 
-Open `http://127.0.0.1:4173`. Use **Explore an example** for a fictional concert memory, or start a story of your own.
+Open `http://127.0.0.1:4173`. Answer the question for today, continue an unfinished conversation, or try a fictional example.
 
-The browser demo includes a contextual interview, editable life events, confirmation, video storyboard planning, illustrated memory films, and stories with passage-level sources and Markdown export. Mocks are the default and make no model calls; live interview/event requests are disabled by default. Stories stay in this browser’s local storage. Recordings stay in memory until downloaded or discarded.
+My space shows one optional question (**Record an answer** / **Write instead**, **Another question**, **Not now**), exact resume points for unfinished conversations, a private event collection with confirmed/draft status, and a memory library of finished stories with their original recordings. Provenance details (local preview vs live Meta model) live under “About” disclosures instead of badges.
 
-Try **Explore an example → A second look → Build an event from my answers → Confirm this event → Preview the script**. Choose the interviewer, setting, and tone, then create a storyboard. Review it, add an image for each scene and optional narration, and choose **Create film** to export a video with slow camera movement, dissolves, and subtitles. Choose **Generate scene with Meta** for each scene, or upload your own image. Each click requests one image using the configured Meta account, and each result names its model. Download generated images before leaving the page. [How the AI flow works](docs/ai-flow.md).
+The demo includes a contextual interview, editable life events, confirmation, video storyboard planning, illustrated memory films, and stories with passage-level sources and Markdown export. Mocks are the default and make no model calls; live interview/event requests are disabled by default. Stories, recordings, and scene images stay saved in this browser until discarded.
+
+Try **fictional example → Review → Build an event from my answers → Confirm this event → Preview the script**. Choose the interviewer, setting, and tone, then create a storyboard. Review it, approve each scene excerpt, add an image for each scene and optional narration, and choose **Create film** to export a video with slow camera movement, dissolves, and subtitles. Choose **Generate scene with Meta** for each approved scene, or upload your own image. Each click requests one image using the configured Meta account, and each result names its model. Generated images stay saved with the story. [How the AI flow works](docs/ai-flow.md).
+
+When a source answer changes after a story is shaped, the affected passage offers the update as an explicit proposal: **Use updated answer** or **Keep my wording**. Nothing is replaced without the narrator’s choice.
 
 ```bash
 npm test

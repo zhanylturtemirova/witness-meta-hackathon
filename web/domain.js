@@ -1,7 +1,7 @@
 export const TOPICS = [
-  { id:'turning-point', name:'A turning point', hint:'A choice, a new start, a different path.', icon:'↗', opening:'What is a moment that changed the direction of your life?' },
-  { id:'person', name:'Someone who stayed with you', hint:'The people who made a difference.', icon:'✳', opening:'Who would you like to remember, and where does your story with them begin?' },
-  { id:'small-moment', name:'An ordinary, unforgettable day', hint:'The little things that turned out to matter.', icon:'☼', opening:'Which ordinary day or small moment do you keep coming back to?' }
+  { id:'turning-point', name:'A turning point', hint:'A choice, a new start, a different path.', opening:'What is a moment that changed the direction of your life?' },
+  { id:'person', name:'Someone who stayed with you', hint:'The people who made a difference.', opening:'Who would you like to remember, and where does your story with them begin?' },
+  { id:'small-moment', name:'An ordinary, unforgettable day', hint:'The little things that turned out to matter.', opening:'Which ordinary day or small moment do you keep coming back to?' }
 ];
 const followups = [
   'Where were you, and what do you remember noticing around you?',
@@ -29,10 +29,13 @@ export function nextQuestion(p) {
     return 'What do you remember about being with that person in that moment?';
   return followups[Math.min(p.questionIndex-1,followups.length-1)];
 }
+export function questionIdentity(p) {
+  return JSON.stringify([(p.answers||[]).length,p.questionIndex||0,p.interviewer?.question||null,p.interviewer?.intent||null,p.interviewer?.promptId||null]);
+}
 export function addAnswer(p,text) {
   if (!text.trim()) throw new Error('Write an answer first.');
   if(text.length>20000) throw new Error('Please keep each answer under 20,000 characters.');
-  const answer={id:crypto.randomUUID(),question:nextQuestion(p),text:text.trim(),revision:1,history:[],uncertaintyReviewed:false,intent:p.interviewer?.intent||null,promptId:p.interviewer?.promptId||null};
+  const answer={id:crypto.randomUUID(),question:nextQuestion(p),questionKey:questionIdentity(p),text:text.trim(),revision:1,history:[],uncertaintyReviewed:false,intent:p.interviewer?.intent||null,promptId:p.interviewer?.promptId||null,createdAt:Date.now()};
   p.answers.push(answer);p.interviewer=null; p.questionIndex++; p.draft=''; p.updatedAt=Date.now(); return answer;
 }
 export function setReviewDraft(p,id,text) {
@@ -43,6 +46,32 @@ export function setReviewDraft(p,id,text) {
 }
 export function reviewDraft(p,id) { return p.reviewDrafts?.[id]; }
 export function reviewText(p,a) { const d=p.reviewDrafts?.[a.id]; return typeof d==='string'?d:a.text; }
+export const MAX_RECORDINGS_PER_STORY=20;
+export function addRecordingMeta(p,meta) {
+  if(!meta||typeof meta.id!=='string'||!meta.id)throw new Error('Recording is missing.');
+  if(typeof meta.question!=='string'||!meta.question.trim())throw new Error('Recording is missing its question.');
+  const recordings=p.recordings||[];
+  if(recordings.some(r=>r.id===meta.id))throw new Error('Recording already saved.');
+  if(recordings.length>=MAX_RECORDINGS_PER_STORY)throw new Error('This story already keeps 20 recordings. Discard one first.');
+  const entry={id:meta.id,question:meta.question.slice(0,600),questionKey:typeof meta.questionKey==='string'?meta.questionKey:'',projectId:typeof meta.projectId==='string'&&meta.projectId?meta.projectId:p.id,createdAt:Number.isFinite(meta.createdAt)?meta.createdAt:Date.now(),durationSec:typeof meta.durationSec==='number'&&meta.durationSec>=0?Math.round(meta.durationSec*10)/10:null,transcript:typeof meta.transcript==='string'?meta.transcript.slice(0,20000):'',transcriptModel:typeof meta.transcriptModel==='string'?meta.transcriptModel.slice(0,120):''};
+  p.recordings=[...recordings,entry];p.updatedAt=Date.now();return entry;
+}
+export function getRecordingMeta(p,id) { return (p.recordings||[]).find(r=>r.id===id)||null; }
+export function recordingAnswer(p,recording) {
+  if(!recording||typeof recording.questionKey!=='string'||!recording.questionKey)return null;
+  return (p.answers||[]).find(a=>a.questionKey===recording.questionKey)||null;
+}
+export function removeRecordingMeta(p,id) {
+  const before=(p.recordings||[]).length;
+  p.recordings=(p.recordings||[]).filter(r=>r.id!==id);
+  if(p.recordings.length!==before)p.updatedAt=Date.now();
+  return p.recordings.length!==before;
+}
+export function setRecordingTranscript(p,id,text,model) {
+  const r=getRecordingMeta(p,id);if(!r)throw new Error('Recording not found.');
+  if(typeof text!=='string'||text.length>20000)throw new Error('Keep the transcript under 20,000 characters.');
+  r.transcript=text;if(typeof model==='string')r.transcriptModel=model.slice(0,120);p.updatedAt=Date.now();return r;
+}
 export function setInterviewer(p,envelope) {
   if(!envelope||typeof envelope!=='object'||!envelope.result||typeof envelope.result.question!=='string') throw new Error('The interview response is incomplete.');
   p.interviewer={...envelope.result,provider:envelope.provider||'mock',model:envelope.model||null};
@@ -69,7 +98,70 @@ export function isStale(p,passage) { return p.answers.find(a=>a.id===passage.sou
 export function refreshPassage(p,passageId) {
   const passage=p.story?.passages.find(x=>x.id===passageId); const a=p.answers.find(a=>a.id===passage?.sourceId);
   if(!passage||!a) throw new Error('Source not found.');
-  passage.text=a.text;passage.sourceText=a.text;passage.sourceRevision=a.revision;passage.edited=false;p.updatedAt=Date.now();
+  passage.text=a.text;passage.sourceText=a.text;passage.sourceRevision=a.revision;passage.edited=false;delete passage.dismissedRevision;p.updatedAt=Date.now();
+}
+export function passageProposal(p,passage) {
+  const a=p.answers.find(a=>a.id===passage?.sourceId);
+  if(!passage||!a||a.revision===passage.sourceRevision||passage.dismissedRevision===a.revision)return null;
+  return {answer:a,text:a.text};
+}
+export function dismissProposal(p,passageId) {
+  const passage=p.story?.passages.find(x=>x.id===passageId); const a=p.answers.find(a=>a.id===passage?.sourceId);
+  if(!passage||!a) throw new Error('Source not found.');
+  passage.dismissedRevision=a.revision;p.updatedAt=Date.now();return passage;
+}
+// Editor proposals are bound to the exact project, passage text, and source
+// answer revisions used for generation. Any change invalidates the binding,
+// both when the response arrives and when the narrator accepts it.
+export function captureEditorBinding(p,passageId,sourceRefs) {
+  const passage=p.story?.passages.find(x=>x.id===passageId);
+  if(!passage)throw new Error('Passage not found.');
+  if(!Array.isArray(sourceRefs)||!sourceRefs.length)throw new Error('A wording suggestion needs its source answers.');
+  return {projectId:p.id,passageId:passage.id,passageText:passage.text,sourceRefs:sourceRefs.map(r=>({answerId:r.answerId,revision:r.revision}))};
+}
+export function editorBindingFresh(p,binding) {
+  if(!binding||binding.projectId!==p.id)return false;
+  const passage=p.story?.passages.find(x=>x.id===binding.passageId);
+  if(!passage||passage.text!==binding.passageText)return false;
+  if(!Array.isArray(binding.sourceRefs)||!binding.sourceRefs.length)return false;
+  return binding.sourceRefs.every(r=>(p.answers||[]).some(a=>a.id===r.answerId&&a.revision===r.revision));
+}
+export function acceptEditorProposal(p,passageId,proposal,binding) {
+  if(typeof proposal!=='string'||!proposal.trim())throw new Error('The wording suggestion is incomplete.');
+  if(!editorBindingFresh(p,binding))return false;
+  const passage=p.story.passages.find(x=>x.id===passageId);
+  passage.text=proposal;passage.edited=true;p.updatedAt=Date.now();return true;
+}
+export function resumePoint(p) {
+  const answers=(p.answers||[]).length;
+  if(p.draft&&p.draft.trim())return {view:'interview',label:'Continue writing',detail:'Your draft is saved.'};
+  if(!answers)return {view:'interview',label:'Answer the first question',detail:'Nothing written yet.'};
+  const count=answers===1?'1 answer':`${answers} answers`;
+  if(p.stage==='video'&&p.video)return {view:'video',label:'Continue your film',detail:`${count} · storyboard ready.`};
+  if(p.stage==='story'&&p.story)return {view:'story',label:'Continue reading',detail:`${p.story.passages.length===1?'1 passage':`${p.story.passages.length} passages`}.`};
+  if(p.stage==='review')return {view:'review',label:'Continue reviewing',detail:`${count}.`};
+  return {view:'interview',label:'Continue the conversation',detail:`${count} so far.`};
+}
+export function needsContinue(p){
+ return !p.story||!!(p.draft&&p.draft.trim());
+}
+export function eventSummary(p){
+ if(!p.event)return null;
+ return {id:typeof p.event.id==='string'&&p.event.id?p.event.id:null,title:p.event.title,dateText:p.event.dateText||null,location:p.event.location||null,confirmed:!!p.event.confirmed,projectId:p.id,projectTitle:p.story?.title||p.title};
+}
+export const HOME_QUESTIONS=[
+ {topic:'small-moment',question:'What stayed with you from today?'},
+ {topic:'small-moment',question:'What did breakfast look like when you were little?'},
+ {topic:'person',question:'Who first made your work feel possible?'},
+ {topic:'small-moment',question:'What do you remember about your first day in that city?'},
+ {topic:'turning-point',question:'What is a small choice that changed an ordinary day?'},
+ {topic:'person',question:'What is something someone once showed you how to do?'},
+ {topic:'small-moment',question:'What sound takes you back to a particular room?'}
+];
+export function homeQuestion(offset=0,now=new Date()) {
+  const localMidnight=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  const index=((Math.floor(localMidnight/86400000)+offset)%HOME_QUESTIONS.length+HOME_QUESTIONS.length)%HOME_QUESTIONS.length;
+  return HOME_QUESTIONS[index];
 }
 export function exportStory(p) {
   if(!p.story) throw new Error('Create a story first.');
@@ -86,8 +178,10 @@ export function exampleProject() {
 }
 export function validProject(p) {
   return !!p && typeof p.id==='string' && typeof p.title==='string' && TOPICS.some(t=>t.id===p.topicId)
-    && Number.isInteger(p.questionIndex) && p.questionIndex>=0 && Array.isArray(p.answers)
+    && Number.isInteger(p.questionIndex) && p.questionIndex>=0 && Array.isArray(p.answers) && (!p.recordings||Array.isArray(p.recordings))
     && p.answers.every(a=>typeof a.id==='string'&&typeof a.text==='string'&&typeof a.question==='string'&&Number.isInteger(a.revision)&&Array.isArray(a.history))
+    &&(!p.events||(Array.isArray(p.events)&&p.events.every(e=>e&&typeof e.id==='string'&&typeof e.title==='string')))
+    &&(!p.weekly||(Array.isArray(p.weekly)&&p.weekly.every(w=>w&&typeof w.id==='string'&&typeof w.narrative==='string'&&(!w.paragraphRefs||Array.isArray(w.paragraphRefs)))))
     && (p.story===null || (p.story && typeof p.story.title==='string'&&Array.isArray(p.story.passages)
       &&p.story.passages.every(s=>typeof s.id==='string'&&typeof s.text==='string'&&typeof s.sourceText==='string'&&typeof s.question==='string'&&Number.isInteger(s.sourceRevision)&&p.answers.some(a=>a.id===s.sourceId))));
 }

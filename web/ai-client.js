@@ -1,4 +1,4 @@
-import {runMockTask,mockEventGenerate,mockEventVerify} from './mock-ai.js';
+import {runMockTask,mockEventGenerate,mockEventVerify,mockEditorGenerate,mockEditorVerify,mockPeriodGenerate,mockPeriodVerify} from './mock-ai.js';
 import {validateAIResult,validateVerifyOutput} from './ai-contracts.js';
 import {runVerifiedEvent,verifiedEventEnvelope} from './event-verify.js';
 // Capability detection decides the automatic provider. A missing or mock status uses
@@ -17,7 +17,7 @@ export async function aiStatus(force=false){
   if(!res.ok)throw Error();
   const data=await res.json();
   const hasTasks=Array.isArray(data.liveTasks);
-  const liveTasks=hasTasks?data.liveTasks.filter(t=>t==='interview'||t==='event'):[];
+  const liveTasks=hasTasks?data.liveTasks.filter(t=>t==='interview'||t==='event'||t==='archivist'||t==='editor'||t==='period'):[];
   const flagged=data.textLiveAvailable===true||data.metaRequestsEnabled===true;
   const liveAvailable=flagged&&(hasTasks?liveTasks.length>0:true);
   statusCache={provider:liveAvailable?'meta':'mock',textLiveAvailable:liveAvailable,liveTasks:hasTasks?liveTasks:(liveAvailable?['interview','event']:[]),model:'muse-spark-1.3'};
@@ -26,68 +26,107 @@ export async function aiStatus(force=false){
  }
  statusAt=now;return statusCache;
 }
-async function liveTask(task,input){
+// Combines a caller cancellation signal with a per-request time budget into
+// one fetch signal, so shared operation deadlines reach the network call.
+function requestSignal(timeoutMs,signal){
+ const controller=new AbortController();
+ if(signal?.aborted){controller.abort(signal.reason);return {signal:controller.signal,cleanup(){}};}
+ const timer=setTimeout(()=>controller.abort(new DOMException('The AI request took too long.','TimeoutError')),timeoutMs);
+ const onAbort=()=>{clearTimeout(timer);controller.abort(signal.reason);};
+ signal?.addEventListener('abort',onAbort,{once:true});
+ return {signal:controller.signal,cleanup(){clearTimeout(timer);signal?.removeEventListener('abort',onAbort);}};
+}
+async function liveTask(task,input,{timeoutMs=65000,signal}={}){
  let res;
+ const req=requestSignal(timeoutMs,signal);
  try{
-  res=await globalThis.fetch('/api/ai/'+task,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),signal:AbortSignal.timeout(65000)});
+  res=await globalThis.fetch('/api/ai/'+task,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),signal:req.signal});
  }catch(err){
+  req.cleanup();
   if(err?.name==='TimeoutError')throw Error('The AI request took too long. Your answers are still saved.');
   throw Error('The AI server could not be reached. Your answers are still saved.');
  }
+ req.cleanup();
+ if(signal?.aborted)throw Error('The request was cancelled. Your answers are still saved; you can retry.');
  let data;
  try{data=await res.json();}catch{throw Error('The AI server did not respond correctly. Your answers are still saved.');}
  if(!res.ok)throw Error(typeof data?.error==='string'&&data.error||'The AI request failed. Your answers are still saved.');
  return {provider:data.provider||'meta',model:data.model||'muse-spark-1.3',result:validateAIResult(task,data.result,input.answers)};
 }
-function checkEventEnvelope(data,input){
+function checkLoopEnvelope(task,data,input){
  const bad=Error('The AI server did not respond correctly. Your answers are still saved.');
  const v=data?.verification;
  if(!data||typeof data!=='object'||!v||(v.status!=='verified'&&v.status!=='unresolved')||(v.attempts!==1&&v.attempts!==2))throw bad;
  const verifier=typeof v.verifier==='string'&&v.verifier?v.verifier:'meta';
  if(v.status==='verified'){
   if(!data.result)throw bad;
-  return {provider:data.provider||'meta',model:data.model||'muse-spark-1.3',result:validateAIResult('event',data.result,input.answers),rejected:null,verification:{status:'verified',issues:[],attempts:v.attempts,verifier}};
+  return {provider:data.provider||'meta',model:data.model||'muse-spark-1.3',result:validateAIResult(task,data.result,input.answers),rejected:null,verification:{status:'verified',issues:[],attempts:v.attempts,verifier}};
  }
  let rejected=null;
  if(data.rejected){
-  const candidate=validateAIResult('event',data.rejected.candidate,input.answers);
+  const candidate=validateAIResult(task,data.rejected.candidate,input.answers);
   const checked=validateVerifyOutput({supported:false,issues:data.rejected.issues},candidate,input.answers);
   rejected={candidate,issues:checked.issues};
  }
  return {provider:data.provider||'meta',model:data.model||'muse-spark-1.3',result:null,rejected,verification:{status:'unresolved',issues:rejected?rejected.issues:[],attempts:v.attempts,verifier}};
 }
-async function liveEvent(input){
+async function liveLoop(task,input,{timeoutMs=EVENT_LIVE_TIMEOUT_MS,signal}={}){
  let res;
+ const req=requestSignal(timeoutMs,signal);
  try{
-  res=await globalThis.fetch('/api/ai/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),signal:AbortSignal.timeout(EVENT_LIVE_TIMEOUT_MS)});
+  res=await globalThis.fetch('/api/ai/'+task,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),signal:req.signal});
  }catch(err){
+  req.cleanup();
   if(err?.name==='TimeoutError')throw Error('The AI request took too long. Your answers are still saved.');
   throw Error('The AI server could not be reached. Your answers are still saved.');
  }
+ req.cleanup();
+ if(signal?.aborted)throw Error('The request was cancelled. Your answers are still saved; you can retry.');
  let data;
  try{data=await res.json();}catch{throw Error('The AI server did not respond correctly. Your answers are still saved.');}
  if(!res.ok)throw Error(typeof data?.error==='string'&&data.error||'The AI request failed. Your answers are still saved.');
- return checkEventEnvelope(data,input);
+ return checkLoopEnvelope(task,data,input);
 }
 async function mockEvent(input){
  return verifiedEventEnvelope(await runVerifiedEvent(input,{verifier:'mock',generate:mockEventGenerate,verify:mockEventVerify}));
 }
+async function mockEditor(input){
+ return verifiedEventEnvelope(await runVerifiedEvent(input,{verifier:'mock',generate:mockEditorGenerate,verify:mockEditorVerify,validate:(r,a)=>validateAIResult('editor',r,a)}));
+}
+async function mockPeriod(input){
+ return verifiedEventEnvelope(await runVerifiedEvent(input,{verifier:'mock',generate:mockPeriodGenerate,verify:mockPeriodVerify,validate:(r,a)=>validateAIResult('period',r,a)}));
+}
+async function singleTask(task,input,{provider,timeoutMs,signal}){
+ if(provider==='mock')return runMockTask(task,input);
+ if(provider==='live')return liveTask(task,input,{timeoutMs,signal});
+ const status=await aiStatus();
+ if(status.textLiveAvailable&&status.liveTasks.includes(task))return liveTask(task,input,{timeoutMs,signal});
+ return runMockTask(task,input);
+}
+async function loopTask(task,input,{provider,timeoutMs,signal},mock){
+ if(provider==='mock')return mock(input);
+ if(provider==='live')return liveLoop(task,input,{timeoutMs,signal});
+ const status=await aiStatus();
+ if(status.textLiveAvailable&&status.liveTasks.includes(task))return liveLoop(task,input,{timeoutMs,signal});
+ return mock(input);
+}
 export const witnessAI={
- async interview(input,{provider='auto'}={}){
-  if(provider==='mock')return runMockTask('interview',input);
-  if(provider==='live')return liveTask('interview',input);
-  const status=await aiStatus();
-  if(status.textLiveAvailable&&status.liveTasks.includes('interview'))return liveTask('interview',input);
-  return runMockTask('interview',input);
+ async interview(input,{provider='auto',timeoutMs,signal}={}){
+  return singleTask('interview',input,{provider,timeoutMs,signal});
  },
- async event(input,{provider='auto'}={}){
-  if(provider==='mock')return mockEvent(input);
-  if(provider==='live')return liveEvent(input);
-  const status=await aiStatus();
-  if(status.textLiveAvailable&&status.liveTasks.includes('event'))return liveEvent(input);
-  return mockEvent(input);
+ async event(input,{provider='auto',timeoutMs,signal}={}){
+  return loopTask('event',input,{provider,timeoutMs,signal},mockEvent);
+ },
+ async archivist(input,{provider='auto',timeoutMs,signal}={}){
+  return singleTask('archivist',input,{provider,timeoutMs,signal});
+ },
+ async editor(input,{provider='auto',timeoutMs,signal}={}){
+  return loopTask('editor',input,{provider,timeoutMs,signal},mockEditor);
+ },
+ async period(input,{provider='auto',timeoutMs,signal}={}){
+  return loopTask('period',input,{provider,timeoutMs,signal},mockPeriod);
  },
  // Video storyboards stay mock-only in this preview, even when interview/event are live.
  async video(input){return runMockTask('video',input);},
 };
-export function projectInput(project){return {title:project.title,topicId:project.topicId,questionIndex:project.questionIndex,answers:project.answers.map(({id,revision,text,question})=>({id,revision,text,question})),askedIntents:[...project.answers.map(a=>a.intent),...(project.skippedIntents||[])].filter(Boolean)};}
+export function projectInput(project){return {title:project.title,topicId:project.topicId,questionIndex:project.questionIndex,answers:project.answers.map(({id,revision,text,question,createdAt})=>({id,revision,text,question,recordedAt:Number.isFinite(createdAt)?new Date(createdAt).toISOString().slice(0,10):null})),askedIntents:[...project.answers.map(a=>a.intent),...(project.skippedIntents||[])].filter(Boolean)};}

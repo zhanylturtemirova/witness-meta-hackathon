@@ -17,6 +17,7 @@ const server = http.createServer(async (req,res) => {
       const abort=new AbortController();req.on('aborted',()=>abort.abort());res.on('close',()=>{if(!res.writableEnded)abort.abort();});
       const request=new Request(url,{method:req.method,headers:req.headers,signal:abort.signal,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});
       const response=await handleAI(request,process.env) || await handleSpeech(request,process.env);
+      if(res.writableEnded||res.destroyed)return;
       if(response){res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;}
       res.writeHead(404);res.end();return;
     }
@@ -25,6 +26,6 @@ const server = http.createServer(async (req,res) => {
     if (!file.startsWith(root + path.sep)) { res.writeHead(403); res.end(); return; }
     const body = await readFile(file);
     res.writeHead(200, {'Content-Type':types[path.extname(file)] || 'application/octet-stream', 'Cache-Control':'no-store'}); res.end(body);
-  } catch { res.writeHead(404); res.end('Not found'); }
+  } catch { if(!res.writableEnded&&!res.destroyed){ try{res.writeHead(404);res.end('Not found');}catch{} } }
 });
 server.listen(Number(process.env.PORT || 4173), '127.0.0.1', () => console.log('Local: http://127.0.0.1:' + server.address().port));

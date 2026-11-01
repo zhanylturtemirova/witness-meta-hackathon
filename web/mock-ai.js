@@ -3,11 +3,13 @@ import {answerRefs,enoughMaterial,validateAIInput,validateAIResult} from './ai-c
 export const VIDEO_TONES=[{id:'warm',label:'Warm & personal'},{id:'documentary',label:'Documentary'},{id:'dramatic',label:'Dramatic'},{id:'humorous',label:'Light & humorous'}];
 export const VIDEO_SETTINGS=[{id:'sunlit-studio',label:'A sunlit studio',direction:'A quiet, sunlit studio with warm natural light.'},{id:'garden',label:'A quiet garden',direction:'A sheltered garden with soft daylight and a simple seating area.'},{id:'tv-show',label:'A late-night TV set',direction:'A fictional late-night TV set with a conversation desk and a softly lit backdrop.'}];
 export const VIDEO_HOSTS=[{id:'thoughtful',label:'A thoughtful listener'},{id:'curious',label:'A curious storyteller'},{id:'playful',label:'A playful interviewer'}];
+const REFUSAL_RE=/\b(i('d| would) rather not|don'?t want to talk about|not comfortable|don'?t ask|leave that|pass on (this|that)|i('d| would) rather stop)\b/i;
 export function mockInterview(input){
  const ready=enoughMaterial(input),last=input.answers.at(-1),asked=input.answers.map(a=>a.question),used=new Set(input.askedIntents||[]);
  const candidates=[];
  if(!last)return {question:TOPICS.find(t=>t.id===input.topicId)?.opening||TOPICS[0].opening,intent:'opening',sourceRefs:[],enoughMaterial:false,suggestedNextStep:'continue'};
  const sourceRefs=[{answerId:last.id,revision:last.revision}];
+ if(REFUSAL_RE.test(last.text))return {question:'Thank you for telling me. Would you like to remember something else instead, or shall we pause here?',intent:'wrap_up',sourceRefs,enoughMaterial:ready,suggestedNextStep:ready?'review_event':'continue'};
  const text=input.answers.map(a=>a.text).join(' ');
  if(hasUncertainty(last))candidates.push(['clarify','You mentioned that some details are uncertain. Is there anything you want to clarify, or would you rather leave it as you remember it?']);
  if(/\b(sister|brother|mother|father|friend|grandmother|grandfather)\b/i.test(last.text))candidates.push(['people','You mentioned someone who was there. What do you remember about being with them in that moment?']);
@@ -90,7 +92,113 @@ export function mockVideo(input){
  const scenes=chosen.map((a,i)=>({title:['Where it begins','Inside the memory','Looking back'][i],hostQuestion:a.question,narratorText:a.text.slice(0,4000),visualDirection:`${setting.direction} ${host}. ${tone} tone. ${i===0?'Start with a wide shot of the fictional set.':'Use an unhurried conversation shot.'}`,sourceRefs:[{answerId:a.id,revision:a.revision}]}));
  return {title:input.event.title,logline:'A conversation built from the interview answers you reviewed.',scenes};
 }
-export async function runMockTask(task,input){validateAIInput(task,input);const result=task==='interview'?mockInterview(input):task==='event'?mockEvent(input):mockVideo(input);return {provider:'mock',model:null,result:validateAIResult(task,result,input.answers)};}
+export async function runMockTask(task,input){validateAIInput(task,input);const result=task==='interview'?mockInterview(input):task==='event'?mockEvent(input):task==='archivist'?mockArchivist(input):task==='editor'?mockEditor(input):mockVideo(input);return {provider:'mock',model:null,result:validateAIResult(task,result,input.answers)};}
+const ARCHIVIST_CUES=[['Music memories',/\b(concert|music|song|band|gig)\b/i],['Moving and arrival',/\b(moved|moving|arrived|new city|new country|abroad)\b/i],['People',/\b(sister|brother|mother|father|friend|grandmother|grandfather|partner)\b/i]];
+export function mockArchivist(input){
+ const groups=[];
+ const rest=[...input.answers];
+ for(const [label,re] of ARCHIVIST_CUES){
+  const mine=rest.filter(a=>re.test(a.text+' '+a.question));
+  if(!mine.length)continue;
+  for(const a of mine)rest.splice(rest.indexOf(a),1);
+  groups.push({label,answerRefs:mine.map(a=>({answerId:a.id,revision:a.revision}))});
+ }
+ if(rest.length)groups.push({label:groups.length?'Other memories':'Memories',answerRefs:rest.map(a=>({answerId:a.id,revision:a.revision}))});
+ return {groups};
+}
+function tidyProse(text){
+ let out=text.replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+ if(out&&!/[.!?…]$/.test(out))out+='.';
+ return out;
+}
+function keptPhrases(passage,answers){
+ const low=answers.map(a=>a.text.toLowerCase()).join('\n');
+ const found=[];
+ for(const word of passage.match(/\b[a-z][a-z'-]{5,}\b/gi)||[]){
+  const w=word.toLowerCase();
+  if(w.length<=20&&low.includes(w)&&!found.some(f=>f.toLowerCase()===w))found.push(word);
+  if(found.length>=5)break;
+ }
+ return found;
+}
+export function mockEditor(input){
+ if(input.repair){
+  const base=input.repair.candidate;
+  let proposal=base.proposal;
+  for(const issue of input.repair.issues){
+   if(issue.field==='proposal'&&issue.statement&&proposal.includes(issue.statement))proposal=proposal.replace(issue.statement,'').replace(/[ \t]+/g,' ').trim();
+  }
+  return {proposal:tidyProse(proposal)||base.proposal,keptPhrases:keptPhrases(proposal,input.answers),sourceRefs:answerRefs(input.answers)};
+ }
+ const proposal=tidyProse(input.passage);
+ return {proposal,keptPhrases:keptPhrases(proposal,input.answers),sourceRefs:answerRefs(input.answers)};
+}
+export function mockVerifyProse(candidate,answers){
+ const issues=[];
+ const text=answers.map(a=>a.text).join(' '),low=text.toLowerCase();
+ const refs=answerRefs(answers),proposal=String(candidate.proposal??'');
+ for(const year of proposal.match(/\b(?:19|20)\d{2}\b/g)||[]){
+  if(!text.includes(year)&&!issues.some(i=>i.statement===year))issues.push({field:'proposal',statement:year,answerRefs:refs,reason:'contradiction'});
+ }
+ for(const name of proposal.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g)||[]){
+  if(!low.includes(name.toLowerCase()))issues.push({field:'proposal',statement:name,answerRefs:refs,reason:'invented_fact'});
+ }
+ for(const year of approximateDates(answers).keys()){
+  if(new RegExp('\\b'+year+'\\b').test(proposal)&&!hasUncertainty({text:proposal}))issues.push({field:'proposal',statement:year,answerRefs:refs,reason:'certainty_overreach'});
+ }
+ return {supported:!issues.length,issues};
+}
+// Weekly-draft checks mirror the prose checks over the narrative field.
+// rangeText is recording-date metadata chosen by the application, not a
+// claim in the answers, so it is never flagged here.
+export function mockVerifyNarrative(candidate,answers){
+ const issues=[];
+ const text=answers.map(a=>a.text).join(' '),low=text.toLowerCase();
+ const refs=answerRefs(answers),narrative=String(candidate.narrative??'');
+ for(const year of narrative.match(/\b(?:19|20)\d{2}\b/g)||[]){
+  if(!text.includes(year)&&!issues.some(i=>i.statement===year))issues.push({field:'narrative',statement:year,answerRefs:refs,reason:'contradiction'});
+ }
+ for(const name of narrative.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g)||[]){
+  if(!low.includes(name.toLowerCase()))issues.push({field:'narrative',statement:name,answerRefs:refs,reason:'invented_fact'});
+ }
+ for(const year of approximateDates(answers).keys()){
+  if(new RegExp('\\b'+year+'\\b').test(narrative)&&!hasUncertainty({text:narrative}))issues.push({field:'narrative',statement:year,answerRefs:refs,reason:'certainty_overreach'});
+ }
+ const title=String(candidate.title??'');
+ for(const year of title.match(/\b(?:19|20)\d{2}\b/g)||[]){
+  if(!text.includes(year)&&!issues.some(i=>i.field==='title'&&i.statement===year))issues.push({field:'title',statement:year,answerRefs:refs,reason:'contradiction'});
+ }
+ return {supported:!issues.length,issues};
+}
+function periodRangeText(input){
+ const weekStart=typeof input.weekStart==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(input.weekStart)?input.weekStart:null;
+ if(!weekStart)return 'A recent week';
+ const start=new Date(weekStart+'T00:00:00Z').getTime();
+ const day=ms=>new Intl.DateTimeFormat('en',{month:'short',day:'numeric',timeZone:'UTC'}).format(new Date(ms));
+ const year=new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'UTC'}).format(new Date(start+6*86400000));
+ return `${day(start)} – ${day(start+6*86400000)}, ${year}`;
+}
+function attributeParagraphs(narrative,answers){
+ const paras=narrative.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
+ return paras.map(pt=>{
+  const owners=answers.filter(a=>a.text.includes(pt));
+  return {paragraph:pt,sourceRefs:answerRefs(owners.length?owners:answers)};
+ });
+}
+export function mockPeriod(input){
+ if(input.repair){
+  const base=input.repair.candidate;
+  let title=base.title,narrative=base.narrative;
+  for(const issue of input.repair.issues){
+   if(issue.field==='title'&&issue.statement&&title.includes(issue.statement))title=title.replace(issue.statement,'').replace(/[ \t]+/g,' ').trim()||'A week worth keeping';
+   if(issue.field==='narrative'&&issue.statement&&narrative.includes(issue.statement))narrative=narrative.replace(issue.statement,'').replace(/[ \t]+/g,' ').trim();
+  }
+  narrative=narrative||base.narrative;
+  return {title,rangeText:base.rangeText,narrative,sourceRefs:answerRefs(input.answers),paragraphRefs:attributeParagraphs(narrative,input.answers)};
+ }
+ const narrative=input.answers.map(a=>a.text).join('\n\n').slice(0,20000);
+ return {title:input.title||'A week worth keeping',rangeText:periodRangeText(input),narrative,sourceRefs:answerRefs(input.answers),paragraphRefs:attributeParagraphs(narrative,input.answers)};
+}
 export async function mockEventGenerate(input,repair){
  const inp=repair?{...input,repair}:input;
  validateAIInput('event',inp);
@@ -98,4 +206,20 @@ export async function mockEventGenerate(input,repair){
 }
 export async function mockEventVerify(candidate,answers){
  return mockVerifyEvent(candidate,answers);
+}
+export async function mockEditorGenerate(input,repair){
+ const inp=repair?{...input,repair}:input;
+ validateAIInput('editor',inp);
+ return {provider:'mock',model:null,result:mockEditor(inp)};
+}
+export async function mockEditorVerify(candidate,answers){
+ return mockVerifyProse(candidate,answers);
+}
+export async function mockPeriodGenerate(input,repair){
+ const inp=repair?{...input,repair}:input;
+ validateAIInput('period',inp);
+ return {provider:'mock',model:null,result:mockPeriod(inp)};
+}
+export async function mockPeriodVerify(candidate,answers){
+ return mockVerifyNarrative(candidate,answers);
 }

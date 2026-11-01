@@ -10,7 +10,7 @@ Live questions use the same input contract and source validation. While a reques
 
 ## The event
 
-**A second look → Build an event from my answers** collects a title, summary, date, place, people, and themes. Missing dates and places stay blank. Approximate dates stay approximate. The mock summary uses the first answer; it is a draft to edit, not a full model summary.
+**Review → Build an event from my answers** collects a title, summary, date, place, people, and themes. Missing dates and places stay blank. Approximate dates stay approximate. The mock summary uses the first answer; it is a draft to edit, not a full model summary.
 
 Live drafts follow the same rules. Existing event edits stay in place until a valid replacement arrives; an answer or event change during generation discards the late result. The narrator edits and confirms the event. Answer IDs and revisions link it to the interview. A new or changed answer makes the event need review again. Rebuilding replaces event edits only after confirmation. Unsaved review edits are kept as drafts and restored after each re-render; Save answer applies them. The event tag names the origin of the current draft. Every draft is checked before it can be accepted: a separate verification step confirms each claim against the answers, with at most one repair and two drafts per attempt. An unresolved draft is shown separately with its issues and never replaces the saved event; only a verified draft can be saved, and its checked label stays only while the content and sources are unchanged. Narrator confirmation remains a separate, explicit step.
 
@@ -18,13 +18,13 @@ Live drafts follow the same rules. Existing event edits stay in place until a va
 
 A confirmed event with enough interview material opens **Preview the script**. Choose a fictional interviewer, setting, and tone, then create a storyboard. Scenes contain original interview questions, excerpts from actual answers, visual directions, and source links. Download the plan as JSON.
 
-Storyboard planning uses local mocks. Changes to the event or answers mark earlier plans for review. Existing plans keep their original source snapshots until explicitly replaced.
+Storyboard planning uses local mocks. Changes to the event or answers mark earlier plans for review. Existing plans keep their original source snapshots until explicitly replaced. Each scene excerpt needs explicit narrator approval before its illustration can be generated; edited answers or events invalidate approvals until reviewed again.
 
 After reviewing a current storyboard, add an image for each scene and choose **Create film**. The browser records a 1280 × 720 illustrated memory: full-frame images, slow camera movement, scene dissolves, and subtitles taken verbatim from the narrator's answers. **Preview motion** plays the composition before export. Images illustrate the story; they are not evidence of the event. Use **Generate scene with Meta** to create an illustration from an approved scene excerpt, with optional visual directions. Each generated image names its model; uploaded images are labelled separately.
 
-An optional narration recording stays on the device. Without narration the film is silent; audio starts at the beginning and is not aligned automatically to individual subtitles. Host, setting, and mood remain storyboard directions, not rendered characters or scenery.
+An optional narration track uses a saved interview recording selected by the narrator, or an uploaded audio file, and stays on the device. Without narration the film is silent; audio starts at the beginning and is not aligned automatically to individual subtitles, so subtitle timing is approximate. Host, setting, and mood remain storyboard directions, not rendered characters or scenery.
 
-Export runs in real time, with a three-minute limit and a choice of 3, 5, or 8 seconds per subtitle. Export prefers a supported H.264/MP4 recording format for playback compatibility, with WebM as a fallback. The player includes a still-frame poster; if a WebM preview is blank in an embedded browser, open the downloaded file in a video player. Play the result and download it before leaving the page: uploaded images, audio, and media previews are temporary. Film export itself needs no API key and makes no external requests. Image generation is a separate, billable Meta API operation. Generated images can be downloaded individually before leaving the page.
+Export runs in real time, with a three-minute limit and a choice of 3, 5, or 8 seconds per subtitle. Export prefers a supported H.264/MP4 recording format for playback compatibility, with WebM as a fallback. The player includes a still-frame poster; if a WebM preview is blank in an embedded browser, open the downloaded file in a video player. Play the result and download the film to keep a copy: scene images stay saved with the story, while the exported film file itself is temporary. Film export itself needs no API key and makes no external requests. Image generation is a separate, billable Meta API operation. Generated images can be downloaded individually before leaving the page.
 
 ## Invitations to remember
 
@@ -46,12 +46,25 @@ Limits: up to 60 answers and 100,000 characters per request, 150 KB request bodi
 
 Request format: [Meta quickstart](https://dev.meta.ai/docs/quickstart), [structured output](https://dev.meta.ai/docs/structured-output).
 
+## Roles
+
+Runtime model choices and instructions live in [agents/](../agents/README.md). The Meta adapter imports them through the role registry; API contracts and the bounded workflows remain in their existing modules.
+
+Each role has separate instructions and shares one contract style: exact answer IDs with revisions, explicit uncertainty, no invented facts, and narrator approval before anything is kept.
+
+- **Interviewer** asks one short, contextual question per call, follows the latest answer, and acknowledges refusals, corrections, and topic changes instead of pressing the same thread.
+- **Archivist** groups answers into distinct occasions (`POST /api/ai/archivist`); each group is then built into a verified event with the existing bounded loop, and drafts enter the collection only when the narrator keeps them. One shared 120-second deadline and call budget cover grouping, drafting, verification, and repairs, including in-flight calls; no new call starts after cancellation, source changes, or budget exhaustion, and late results are discarded. Recording dates travel with answers but are never treated as event dates.
+- **Editor** proposes one clearer wording per passage (`POST /api/ai/editor`, verified through the same bounded loop with prose checks); accepting sets passage text, original answers are never changed.
+- **Verifier** checks event drafts and wording proposals against source answers within the two-candidate, two-check, 120-second budget. Transport errors abort without regeneration.
+
+Weekly stories draft a `period` narrative from entries selected by recording week (`POST /api/ai/period`, verified through the same bounded loop with narrative checks); the narrator accepts, edits, or discards each proposal, and proposals invalidate when sources change. The `match` contract (shape and validation) is defined for a later stage; merge proposals and discovery matching are not implemented yet. The fictional eval set in `tests/eval-roles.test.js` covers vague dates, contradictions, corrections, refusal, topic changes, short answers, and distinctive wording against local mocks.
+
 ## Meta scene images
 
 `POST /api/ai/image` uses `muse-image-1.0` through Meta's `POST /v1/images/generations`, with `n=1`, PNG/base64 output, landscape aspect ratio, and web/image search and shell tools disabled. The server requires `META_AI_ENABLED=true` and `MODEL_API_KEY`; `META_IMAGE_ENABLED=false` disables image generation separately. No request runs just by opening the page.
 
 The server checks event confirmation, source revisions, and that the scene quotes a source answer before sending only the selected scene excerpt and optional visual directions to Meta. Each click makes at most one upstream request, with a two-minute timeout and no automatic retry. Images share the AI request concurrency guard. Provider errors leave the current scene intact; navigation cancels the browser request and aborts the upstream connection, although provider processing or billing may still complete.
 
-Results are checked for size and PNG format, then shown with their provider and model. Replacing an image clears film approval. Images are imagined reconstructions, not verified evidence of what happened. They remain in memory until downloaded, replaced, or the page is left; they are not written to the repository or local storage.
+Results are checked for size and PNG format, then shown with their provider and model. Replacing an image clears film approval. Images are imagined reconstructions, not verified evidence of what happened. They are saved with the story in this browser, with provider and model attribution, and restored on return; if browser storage is unavailable, the film step says so and images last until reload. They are never written to the repository.
 
 API contract: [Meta image-generation documentation](https://dev.meta.ai/docs/image-generation).

@@ -4,6 +4,14 @@ A globe for finding familiar experiences in other people's stories.
 
 Choose an event in the example timeline. Matching shared stories appear as points connected to that event by curved lines. Open a point or a story card to read more. Use the locate button on a card to bring its city into view.
 
+## Intended experience
+
+The side panel contains the person's own events: a first concert, first day at school, first job, or another scene extracted from their journal. Selecting one event makes its location the origin. Matching shared experiences light up elsewhere, with curved lines growing outward from that origin to each match. Selecting a point opens the corresponding story and the reason it matches.
+
+**Same event** needs compatible identifying details, date and place. **Similar experience** can connect people across countries and years: two first jobs building cottages may be related even when the employers, dates and cities differ. A broad category such as Work is not enough on its own. Stories in the same city remain separate results; missing locations must not be invented.
+
+The complete journal flow, matching examples, map behaviour and acceptance scenarios are in [Journal and Connect](journal-and-connect.md). This describes the intended direction; the implemented category-based fictional preview below has not yet been replaced with real-user matching.
+
 ## The preview
 
 - Four example life events and ten shared fictional stories.

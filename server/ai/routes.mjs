@@ -1,14 +1,15 @@
 import {isImageLiveEnabled,runMetaImage,IMAGE_MODEL} from './images.mjs';
-import {runMockTask,mockEventGenerate,mockEventVerify} from '../../web/mock-ai.js';
+import {runMockTask,mockEventGenerate,mockEventVerify,mockEditorGenerate,mockEditorVerify,mockPeriodGenerate,mockPeriodVerify} from '../../web/mock-ai.js';
 import {isTextLiveEnabled,runMetaTask} from './meta.mjs';
+import {validateAIResult} from '../../web/ai-contracts.js';
 import {runVerifiedEvent,verifiedEventEnvelope} from '../../web/event-verify.js';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 let inFlight=false;
 export async function handleAI(request,env={},fetcher=globalThis.fetch){
  const url=new URL(request.url);
  const live=isTextLiveEnabled(env,fetcher);
- if(url.pathname==='/api/ai-status')return request.method==='GET'?json({provider:live?'meta':'mock',metaRequestsEnabled:live,textLiveAvailable:live,liveTasks:live?['interview','event']:[],model:'muse-spark-1.3',imageLiveAvailable:isImageLiveEnabled(env),imageModel:IMAGE_MODEL,tasks:['interview','event','video','image']}):json({error:'Method not allowed.'},405);
- const task={'/api/ai/interview':'interview','/api/ai/event':'event','/api/ai/video':'video','/api/ai/image':'image'}[url.pathname];if(!task)return null;
+ if(url.pathname==='/api/ai-status')return request.method==='GET'?json({provider:live?'meta':'mock',metaRequestsEnabled:live,textLiveAvailable:live,liveTasks:live?['interview','event','archivist','editor','period']:[],model:'muse-spark-1.3',imageLiveAvailable:isImageLiveEnabled(env),imageModel:IMAGE_MODEL,tasks:['interview','event','video','image','archivist','editor','period']}):json({error:'Method not allowed.'},405);
+ const task={'/api/ai/interview':'interview','/api/ai/event':'event','/api/ai/video':'video','/api/ai/image':'image','/api/ai/archivist':'archivist','/api/ai/editor':'editor','/api/ai/period':'period'}[url.pathname];if(!task)return null;
  if(request.method!=='POST')return json({error:'Method not allowed.'},405);
  if(request.headers.get('Origin')&&request.headers.get('Origin')!==url.origin)return json({error:'Open Witness before using this endpoint.'},403);
  if(request.headers.get('Content-Type')?.split(';')[0]!=='application/json')return json({error:'Send the interview as JSON.'},415);
@@ -21,24 +22,26 @@ export async function handleAI(request,env={},fetcher=globalThis.fetch){
    if(inFlight)return json({error:'Another AI request is running. Wait before generating an image.'},429);
    inFlight=true;try{return json(await runMetaImage(input,{apiKey:env.MODEL_API_KEY,fetcher,signal:request.signal}));}finally{inFlight=false;}
   }
-  if(task==='event'){
+  if(task==='event'||task==='editor'||task==='period'){
    if(input&&typeof input==='object'&&'repair' in input)return json({error:'The server manages repair attempts. Send the interview without repair data.'},400);
+   const validate=(r,a)=>validateAIResult(task,r,a);
    if(isTextLiveEnabled(env,fetcher)){
     if(inFlight)return json({error:'Another AI request is running. Wait a moment before retrying. Your answers are still saved.'},429);
     inFlight=true;
     try{
-     const run=await runVerifiedEvent(input,{verifier:'meta',
-      generate:(inp,rep,opts)=>runMetaTask('event',rep?{...inp,repair:rep}:inp,{apiKey:env.MODEL_API_KEY,fetcher,timeoutMs:opts.timeoutMs,signal:opts.signal,validateResult:false}),
+     const run=await runVerifiedEvent(input,{verifier:'meta',validate,signal:request.signal,
+      generate:(inp,rep,opts)=>runMetaTask(task,rep?{...inp,repair:rep}:inp,{apiKey:env.MODEL_API_KEY,fetcher,timeoutMs:opts.timeoutMs,signal:opts.signal,validateResult:false}),
       verify:async(cand,ans,opts)=>(await runMetaTask('verify',{title:input.title,answers:ans,candidate:cand},{apiKey:env.MODEL_API_KEY,fetcher,timeoutMs:opts.timeoutMs,signal:opts.signal})).result});
      return json(verifiedEventEnvelope(run));
     }finally{inFlight=false;}
    }
-   return json(verifiedEventEnvelope(await runVerifiedEvent(input,{verifier:'mock',generate:mockEventGenerate,verify:mockEventVerify})));
+   const mock=task==='editor'?{generate:mockEditorGenerate,verify:mockEditorVerify}:task==='period'?{generate:mockPeriodGenerate,verify:mockPeriodVerify}:{generate:mockEventGenerate,verify:mockEventVerify};
+   return json(verifiedEventEnvelope(await runVerifiedEvent(input,{verifier:'mock',validate,...mock})));
   }
   if(task!=='video'&&isTextLiveEnabled(env,fetcher)){
    if(inFlight)return json({error:'Another AI request is running. Wait a moment before retrying. Your answers are still saved.'},429);
    inFlight=true;
-   try{return json(await runMetaTask(task,input,{apiKey:env.MODEL_API_KEY,fetcher}));}
+   try{return json(await runMetaTask(task,input,{apiKey:env.MODEL_API_KEY,fetcher,signal:request.signal}));}
    finally{inFlight=false;}
   }
   return json(await runMockTask(task,input));

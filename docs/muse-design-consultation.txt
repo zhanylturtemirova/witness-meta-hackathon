@@ -1,0 +1,82 @@
+muse: local session messaging disabled: session logging is required
+muse: workspace root: /Users/zhanylturtemirova/Documents/funds and grands/witness-meta-hackathon (cwd default)
+muse: workspace trust: trusted source=user-config
+## Witness redesign brief
+
+Goal: replace generic slogans and decoration with a calm tool that does four things well: ask one good question, keep what was said, help shape it, let the reader return.
+
+Global language rule: name concrete actions. Say "Answer, skip, or change it later," not promises about legacy or self-discovery. Remove starbursts, vague 3-step diagrams, and text-card "videos."
+
+### 1. Home
+
+One screen, one question. Layout:
+
+- Top: today's memory question, specific and small, e.g. "What did Sunday mornings sound like where you grew up?" with date. One "Ask me something else" control.
+- Middle: two equal choices: "Record" (max 2 min, with transcript for review) and "Write." Both go to the same draft.
+- Below: two lists only: "Unfinished" (question + first line + date) and "Reading" (finished stories, progress kept).
+
+No streaks, points, or "complete your story" banners.
+
+### 2. Connect preview
+
+Keep as a separate, clearly labelled preview using fictional stories only. Real profiles, messaging, and publishing stay future work.
+
+- Visual: full-screen dark space, one photoreal Earth, slow drift, no starfield clutter.
+- Interaction: timeline of fictional shared events. Selecting one event lights 2–4 markers in sequence, draws one arc at a time, then stops. Never animate all arcs at once.
+- Reading: max two short excerpts per event, each with theme and coarse place only ("coastal Portugal"), no exact pin. "Read more" opens text, not a profile.
+- Location: opt-in, coarse, revocable, off by default. Store city/region text only. Say so on the screen.
+
+### 3. Interviewer vs editor
+
+Two separate Muse Spark roles, different prompts and UI:
+
+- Interviewer: asks one follow-up from the last 2–3 answers. Can be skipped. Never summarises, never labels feelings, never suggests a diagnosis or life lesson.
+- Editor: works only from saved answer versions. Proposed revisions show: old sentence, new sentence, source answer IDs. Narrator can keep, change, or reject each one. Editing an answer marks linked passages "Check again."
+
+Faithfulness rule: keep "I don't remember," approximations, and pauses. No invented names, dates, or quotes.
+
+### 4. Notifications
+
+Opt-in only, off by default. Two types only:
+
+- A gentle new question, max 1/day.
+- A saved passage the narrator starred, max 2/week.
+
+Settings: days, quiet hours (default 21:00–08:00), pause for 7/30 days, one-tap off. No streaks, no "You missed," no counts of unanswered questions.
+
+### 5. Moving image
+
+No photoreal fake autobiography. Offer only:
+
+- Illustrated stills for approved scenes (one image per scene, reviewed).
+- Short 2D scene adaptations: slow pan/dissolve over illustrations, narrator's own recorded or uploaded narration, subtitles from approved text.
+
+Label each film "Illustrated version." Do not claim Meta APIs generate TTS or moving video; those capabilities must be verified separately. Plan currently on human narration + illustration only.
+
+### 6. Publisher licensing
+
+Separate from sharing with family/friends. Plan:
+
+- No publisher access by default.
+- Explicit second permission: what excerpt, who may see it, for how long.
+- Narrator approves the exact text and illustration before any handover, and can withdraw. Keep an audit line: what, to whom, when.
+
+## Visual directions
+
+Listening room: warm off-white/paper, one serif for reading + plain sans for controls, large tap targets, visible waveform while recording, generous margins. Feels private and voice-first. Risk: can look flat if over-minimal.
+
+World of memories: dark space Connect, Earth as focus, thin warm arcs, restrained type. Feels cinematic and human when excerpts lead. Risk: cold and spectacular if applied everywhere.
+
+Recommendation: combine by place. Use Listening room for home, interview, reading, and editor. Reserve dark space only for Connect. Shared thread: same reading serif, same warm accent for "your words," same plain buttons. The contrast then means something: light = private work, dark = shared world preview.
+
+## Prompts and evals before fine-tuning
+
+No fine-tuning yet. Small, private data and quality problems are prompt problems first. For each task below, write prompt + 10–20 fictional examples + checks:
+
+1. Next interview question; 2. clarification request; 3. life-event grouping; 4. passage draft with source IDs; 5. editor revision; 6. excerpt choice for Connect.
+
+Evals: source IDs exist, no new facts, uncertainty kept, skip works, failure keeps answers. Consider other models or tuning only if a named check keeps failing.
+
+## Implementation sequence
+
+1. Home with one question, record/write, two lists. 2. Split interviewer/editor prompts and side-by-side review. 3. Restrained Connect: sequential arcs, two excerpts, coarse opt-in place. 4. Notification settings with quiet hours. 5. Illustrated 2D film path with approvals. 6. Licensing as explicit permission + approval log.

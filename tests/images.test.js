@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {exampleProject,reviseAnswer} from '../web/domain.js';
 import {mockEvent,mockVideo} from '../web/mock-ai.js';
 import {projectInput} from '../web/ai-client.js';
-import {saveEvent,confirmEvent,saveVideo} from '../web/event-model.js';
+import {saveEvent,confirmEvent,saveVideo,approveSceneIllustration,sceneApprovalValid} from '../web/event-model.js';
 import {buildImageRequest,runMetaImage,isImageLiveEnabled} from '../server/ai/images.mjs';
 import {handleAI} from '../server/ai/routes.mjs';
 import {generateSceneImage} from '../web/scene-images.js';
@@ -30,7 +30,20 @@ test('image route requires explicit live configuration, same-origin JSON and a s
  const status=await (await handleAI(new Request('http://localhost/api/ai-status'),enabled)).json();assert.equal(status.imageLiveAvailable,true);assert.equal(status.imageModel,'muse-image-1.0');
 });
 test('browser image failures never retry or fall back, and stale sources make no requests',async()=>{
- const p=ready();let calls=0;const fetcher=async()=>{calls++;return Response.json({error:'Meta is busy'},{status:429});};await assert.rejects(()=>generateSceneImage(p,0,'',{fetcher}),/Meta is busy/);assert.equal(calls,1);
+ const p=ready();approveSceneIllustration(p,0);let calls=0;const fetcher=async()=>{calls++;return Response.json({error:'Meta is busy'},{status:429});};await assert.rejects(()=>generateSceneImage(p,0,'',{fetcher}),/Meta is busy/);assert.equal(calls,1);
  reviseAnswer(p,p.answers[0].id,'A changed memory.');await assert.rejects(()=>generateSceneImage(p,0,'',{fetcher}),/current storyboard/);assert.equal(calls,1);
- const fresh=ready();const image=await generateSceneImage(fresh,0,'',{fetcher:async()=>Response.json({provider:'meta',model:'muse-image-1.0',mimeType:'image/png',image:png})});assert.equal(image.blob.type,'image/png');assert.ok(image.blob.size>8);
+ const fresh=ready();approveSceneIllustration(fresh,0);const image=await generateSceneImage(fresh,0,'',{fetcher:async()=>Response.json({provider:'meta',model:'muse-image-1.0',mimeType:'image/png',image:png})});assert.equal(image.blob.type,'image/png');assert.ok(image.blob.size>8);
+});
+test('scene images need narrator approval first, and changed sources invalidate it',async()=>{
+ const p=ready();let calls=0;
+ await assert.rejects(()=>generateSceneImage(p,0,'',{fetcher:async()=>{calls++;return Response.json({});}}),/Approve this scene excerpt/);assert.equal(calls,0);
+ approveSceneIllustration(p,1);assert.equal(sceneApprovalValid(p,1),true);assert.equal(sceneApprovalValid(p,0),false);
+ reviseAnswer(p,p.answers[0].id,'A changed memory.');
+ assert.equal(sceneApprovalValid(p,1),false);
+ assert.throws(()=>approveSceneIllustration(p,1),/current storyboard/);
+});
+test('a new storyboard drops earlier illustration approvals',async()=>{
+ const p=ready();approveSceneIllustration(p,0);assert.equal(sceneApprovalValid(p,0),true);
+ saveVideo(p,mockVideo({...projectInput(p),event:p.event,options:p.video.options}),p.video.options);
+ assert.equal(sceneApprovalValid(p,0),false);
 });

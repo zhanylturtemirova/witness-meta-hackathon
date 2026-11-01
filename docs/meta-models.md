@@ -27,7 +27,7 @@ API calls should run on the server. Standard mode is the intended choice for per
 
 ## Voice, visuals, and discovery
 
-Muse Voice Transcribe returns text, not synthetic speech. Muse Image produces images, not a finished video interview. Video generation and voice synthesis need a separate technical choice.
+Muse Voice Transcribe returns text. Optional question read-aloud uses an installed browser/device voice, without a TTS API call; it is separate from Muse. Muse Image produces images, not a finished video interview. Moving-video generation still needs a separate technical choice.
 
 For future story discovery, model and search choices remain open. Matching should use only stories or topics people explicitly choose to share, not their private interviews.
 

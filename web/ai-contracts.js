@@ -4,7 +4,11 @@ export const AI_SCHEMAS={
  interview:{type:'object',properties:{question:{type:'string'},intent:{type:'string',enum:['opening','place','time','people','detail','meaning','clarify','wrap_up']},sourceRefs:refsSchema,enoughMaterial:{type:'boolean'},suggestedNextStep:{type:'string',enum:['continue','review_event']}},required:['question','intent','sourceRefs','enoughMaterial','suggestedNextStep'],additionalProperties:false},
  event:{type:'object',properties:{title:{type:'string'},summary:{type:'string'},dateText:{type:['string','null']},location:{type:['string','null']},people:{type:'array',items:{type:'string'}},themes:{type:'array',items:{type:'string'}},detailsToConfirm:{type:'array',items:{type:'string'}},sourceRefs:refsSchema},required:['title','summary','dateText','location','people','themes','detailsToConfirm','sourceRefs'],additionalProperties:false},
  video:{type:'object',properties:{title:{type:'string'},logline:{type:'string'},scenes:{type:'array',items:{type:'object',properties:{title:{type:'string'},hostQuestion:{type:'string'},narratorText:{type:'string'},visualDirection:{type:'string'},sourceRefs:refsSchema},required:['title','hostQuestion','narratorText','visualDirection','sourceRefs'],additionalProperties:false}}},required:['title','logline','scenes'],additionalProperties:false},
- verify:{type:'object',properties:{supported:{type:'boolean'},issues:{type:'array',items:{type:'object',properties:{field:{type:'string',enum:['title','summary','dateText','location','people','themes','detailsToConfirm']},statement:{type:'string'},answerRefs:refsSchema,reason:{type:'string',enum:['invented_fact','contradiction','certainty_overreach']}},required:['field','statement','answerRefs','reason'],additionalProperties:false}}},required:['supported','issues'],additionalProperties:false}
+ verify:{type:'object',properties:{supported:{type:'boolean'},issues:{type:'array',items:{type:'object',properties:{field:{type:'string',enum:['title','summary','dateText','location','people','themes','detailsToConfirm','proposal','narrative']},statement:{type:'string'},answerRefs:refsSchema,reason:{type:'string',enum:['invented_fact','contradiction','certainty_overreach']}},required:['field','statement','answerRefs','reason'],additionalProperties:false}}},required:['supported','issues'],additionalProperties:false},
+ archivist:{type:'object',properties:{groups:{type:'array',items:{type:'object',properties:{label:{type:'string'},answerRefs:refsSchema},required:['label','answerRefs'],additionalProperties:false}}},required:['groups'],additionalProperties:false},
+ editor:{type:'object',properties:{proposal:{type:'string'},keptPhrases:{type:'array',items:{type:'string'}},sourceRefs:refsSchema},required:['proposal','keptPhrases','sourceRefs'],additionalProperties:false},
+ period:{type:'object',properties:{title:{type:'string'},rangeText:{type:'string'},narrative:{type:'string'},sourceRefs:refsSchema,paragraphRefs:{type:'array',items:{type:'object',properties:{paragraph:{type:'string'},sourceRefs:refsSchema},required:['paragraph','sourceRefs'],additionalProperties:false}}},required:['title','rangeText','narrative','sourceRefs','paragraphRefs'],additionalProperties:false},
+ match:{type:'object',properties:{matchType:{type:'string',enum:['same_occasion','similar_experience']},reason:{type:'string'},evidenceRefs:refsSchema},required:['matchType','reason','evidenceRefs'],additionalProperties:false}
 };
 const str=(v,max=20000)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 const nullable=v=>v===null||str(v,500);
@@ -50,6 +54,35 @@ export function validateAIResult(task,result,answers){
   validateEventShape(result);
   validateRefs(result.sourceRefs,answers);
   if(result.sourceRefs.length!==answers.length)throw Error('The event must include all interview answers.');
+ }else if(task==='archivist'){
+  if(!Array.isArray(result.groups)||!result.groups.length||result.groups.length>8)throw Error('The archivist response is incomplete.');
+  const seen=new Set();
+  for(const g of result.groups){
+   if(!g||typeof g!=='object'||!str(g.label,120))throw Error('An event group is incomplete.');
+   validateRefs(g.answerRefs,answers);
+   for(const r of g.answerRefs){if(seen.has(r.answerId))throw Error('An answer belongs to two event groups.');seen.add(r.answerId);}
+  }
+ }else if(task==='editor'){
+  if(!str(result.proposal,6000))throw Error('The wording suggestion is incomplete.');
+  if(!Array.isArray(result.keptPhrases)||result.keptPhrases.length>10||!result.keptPhrases.every(p=>typeof p==='string'&&p.length<=200))throw Error('The kept phrases could not be read.');
+  validateRefs(result.sourceRefs,answers);
+ }else if(task==='period'){
+  if(!str(result.title,120)||!str(result.rangeText,120)||!str(result.narrative,20000))throw Error('The period summary is incomplete.');
+  validateRefs(result.sourceRefs,answers,{allowEmpty:true});
+  if(!Array.isArray(result.paragraphRefs)||!result.paragraphRefs.length)throw Error('The weekly draft has no paragraph sources.');
+  const paras=String(result.narrative).split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
+  const remaining=[...paras];
+  for(const e of result.paragraphRefs){
+   if(!e||typeof e!=='object'||!str(e.paragraph,20000))throw Error('A weekly paragraph source is incomplete.');
+   validateRefs(e.sourceRefs,answers);
+   const i=remaining.indexOf(String(e.paragraph).trim());
+   if(i<0)throw Error('A weekly paragraph source does not match the draft.');
+   remaining.splice(i,1);
+  }
+  if(remaining.length)throw Error('Every weekly paragraph needs its own sources.');
+ }else if(task==='match'){
+  if(!['same_occasion','similar_experience'].includes(result.matchType)||!str(result.reason,2000))throw Error('The match explanation is incomplete.');
+  validateRefs(result.evidenceRefs,answers);
  }else if(task==='video'){
   if(!str(result.title,120)||!str(result.logline,2000)||!Array.isArray(result.scenes)||!result.scenes.length||result.scenes.length>8)throw Error('The video plan is incomplete.');
   for(const scene of result.scenes){if(!str(scene.title,120)||!str(scene.hostQuestion,600)||!str(scene.narratorText,4000)||!str(scene.visualDirection,2000))throw Error('A video scene is incomplete.');validateRefs(scene.sourceRefs,answers);if(!scene.sourceRefs.some(r=>answers.find(a=>a.id===r.answerId)?.text.includes(scene.narratorText)))throw Error('Narrator lines must come directly from a source answer.');}
@@ -63,12 +96,22 @@ export function validateAIInput(task,input){
  if(task!=='interview'&&!input.answers.length)throw Error('Add an answer before building an event.');
  if(task==='verify'){
   if(!input.candidate||typeof input.candidate!=='object')throw Error('There is no draft to check.');
-  validateEventShape(input.candidate);
+  if(typeof input.candidate.proposal==='string'&&input.candidate.title===undefined){
+   if(!str(input.candidate.proposal,6000))throw Error('There is no wording draft to check.');
+  }else if(typeof input.candidate.narrative==='string'&&input.candidate.summary===undefined){
+   validateAIResult('period',input.candidate,input.answers);
+  }else validateEventShape(input.candidate);
  }
- if(task==='event'&&input.repair!==undefined){
+ if(task==='editor'){
+  if(typeof input.passage!=='string'||!input.passage.trim()||input.passage.length>20000)throw Error('There is no passage to reword.');
+  if(!input.answers.length)throw Error('A wording suggestion needs its source answers.');
+ }
+ if(task==='editor'&&input.repair!==undefined||task==='event'&&input.repair!==undefined||task==='period'&&input.repair!==undefined){
   const r=input.repair;
   if(!r||typeof r!=='object'||!r.candidate||typeof r.candidate!=='object'||!Array.isArray(r.issues)||!r.issues.length)throw Error('The repair request could not be read.');
-  validateEventShape(r.candidate);
+  if(task==='editor')validateAIResult('editor',r.candidate,input.answers);
+  else if(task==='period')validateAIResult('period',r.candidate,input.answers);
+  else validateEventShape(r.candidate);
   for(const issue of r.issues)validateVerifyIssue(issue,r.candidate,input.answers);
  }
  if(task==='video'){

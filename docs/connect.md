@@ -1,33 +1,23 @@
 # Connect
 
-A globe for finding familiar experiences in other people's stories.
+Choose a confirmed event from your collection to find related fictional stories. The event's city is the origin on Earth. Your event stays on your device; choosing it does not publish it or send it to a model.
 
-Choose an event in the example timeline. Matching shared stories appear as points connected to that event by curved lines. Open a point or a story card to read more. Use the locate button on a card to bring its city into view.
+The sidebar switches between your confirmed events and five example events. Drafts and events with changed source answers stay out of Connect until reviewed. Dates such as “around 2019” remain unchanged. An event without a recognised city can still be read and compared, but has no invented map origin. The small city gazetteer is in `web/connect-events.js`; it is not a worldwide geocoder.
 
-## Intended experience
+## Earth and stories
 
-The side panel contains the person's own events: a first concert, first day at school, first job, or another scene extracted from their journal. Selecting one event makes its location the origin. Matching shared experiences light up elsewhere, with curved lines growing outward from that origin to each match. Selecting a point opens the corresponding story and the reason it matches.
+The textured Earth uses day and night imagery, a restrained atmosphere, and outward great-circle connections. Drag or use arrow keys to rotate, zoom with the buttons, or locate a story from its card. A connection sequence finishes after about four seconds; pause, replay, or turn motion off. Reduced-motion preferences are respected. Rendering pauses outside the viewport and when the page is hidden.
 
-**Same event** needs compatible identifying details, date and place. **Similar experience** can connect people across countries and years: two first jobs building cottages may be related even when the employers, dates and cities differ. A broad category such as Work is not enough on its own. Stories in the same city remain separate results; missing locations must not be invented.
+Two excerpts from fictional shared stories sit beside the Earth. Your private interview text is not used as background decoration. Nearby map buttons are separated so both can be opened. All results remain readable in the list, including stories on the far side of Earth and when WebGL is unavailable.
 
-The complete journal flow, matching examples, map behaviour and acceptance scenarios are in [Journal and Connect](journal-and-connect.md). This describes the intended direction; the implemented category-based fictional preview below has not yet been replaced with real-user matching.
+## Matching preview
 
-## The preview
+The preview contains fourteen shared fictional stories and one unshared example. Curated topics support concert, moving, and first-project examples. Construction matches additionally require evidence of small-house work, site tasks, and learning a trade on both sides. A first job in a bakery does not match just because both are first jobs.
 
-- Four example life events and ten shared fictional stories.
-- A globe you can drag, rotate with arrow keys or buttons, zoom, and reset.
-- Matching based on explicit event categories, with a reason shown on each card.
-- An empty state for an event with no matches.
-- The selected event survives a page reload.
-- Nearby markers are offset with small leader lines so both remain clickable.
-- All stories are available in the card list, including ones on the far side of the globe.
+**Same occasion** requires an explicit shared fictional occasion identifier plus matching date and place. Other related results say **Similar experience**. Each card includes its reason and the two excerpts used for comparison. This is local preview logic, not a semantic Muse matching service.
 
-The timeline is fictional, not extracted from the narrator's private interviews. Profiles are examples; no accounts, messaging, or real-user discovery are connected. Similar experiences do not mean people attended the same specific occasion.
+Real-user publishing, matching, accounts, and messaging still need a server and explicit sharing controls. The [journal and Connect plan](journal-and-connect.md) describes that direction.
 
-## Map data
+## Attribution
 
-Land dots are derived from [Natural Earth 1:110m land](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_land.geojson). Natural Earth data is [public domain](https://www.naturalearthdata.com/about/terms-of-use/). The generated points are bundled in `web/land-points.js`; the globe does not need a map API key or live map requests.
-
-## Later
-
-Let narrators choose a story version, topic, and broad location to share. They should be able to correct extracted events and remove a story from discovery. Real matching and contact preferences need a server-backed implementation. Meta could help propose event topics for review; the current category matching makes no model calls.
+The renderer adapts the user's Master Dev Workshop Earth treatment. Three.js is vendored locally with its MIT licence; no external script or map request is needed. NASA day/night imagery and workshop attribution are in [the Earth assets README](../web/assets/earth/README.md).

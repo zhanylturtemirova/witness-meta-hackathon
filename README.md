@@ -61,9 +61,9 @@ The build writes the static app to `dist/`.
 
 ## Connect
 
-Open **Connect** from the sidebar to explore a globe of shared experiences. Choose an event from the fictional timeline to see matching stories light up and connect across the globe. Drag to rotate, locate a story on the map, or open a marker to read it.
+Open **Connect** from the sidebar to explore a globe of shared experiences. Choose one of your confirmed events or a fictional example to see related stories connect across a textured Earth. Drag to rotate, locate a story on the map, or open a marker to read it.
 
-The preview uses fictional profiles and explicit event categories. It needs no AI credits or map key. [How Connect works](docs/connect.md).
+Your event stays private; the community profiles are fictional. Preview matching uses explicit topics and evidence. It needs no AI credits or map key. [How Connect works](docs/connect.md).
 
 ## Voice answers
 

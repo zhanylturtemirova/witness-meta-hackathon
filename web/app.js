@@ -1,3 +1,4 @@
+import {connectEventsFor} from './connect-events.js';
 import {suggestedPrompt,promptOptions,useMemoryPrompt} from './memory-prompts.js';
 import {mountVideoExport,unmountVideoExport} from './video-export.js';
 import {witnessAI,projectInput,aiStatus} from './ai-client.js';
@@ -192,7 +193,7 @@ function render(){
  sizeTextareas();
  if(state.view==='video'&&p?.video)mountVideoExport(p,{onSave:()=>save()});
  if(state.view==='story'&&p?.story)mountStoryAudio(p);
- if(state.view==='connect')mountConnect({selected:state.connectEvent,onSelect:id=>{state.connectEvent=id;save();},onStory:s=>showDialog(sharedStoryMarkup(s))});
+ if(state.view==='connect')mountConnect({selected:state.connectEvent,events:connectEventsFor(state.projects),onSelect:id=>{state.connectEvent=id;save();},onStory:s=>showDialog(sharedStoryMarkup(s)),onReview:id=>go('review',id)});
  if(state.view==='interview')mountVoice(p,{onNotify:toast,onSave:()=>save(),onRevisit:answerId=>{go('review');const t=document.querySelector('#edit-'+CSS.escape(answerId));if(t){t.scrollIntoView({block:'center'});t.focus({preventScroll:true});}},onApply:text=>{const input=$('#answer-input');const combined=[input.value.trim(),text].filter(Boolean).join('\n\n');if(combined.length>20000){toast('This answer is too long. Shorten it before adding the transcript.');return false;}input.value=combined;p.draft=combined;save();return true;}});
  if(state.view==='interview')mountQuestionSpeech({key:JSON.stringify([p.id,p.answers.length,p.questionIndex,nextQuestion(p)]),text:nextQuestion(p),pending:interviewFlow.projectId===p.id&&interviewFlow.phase!=='idle',canSpeak:()=>!voiceBusy()&&!document.hidden&&($('#voice-playback')?.paused!==false)});
  if(loadError){const w=$('#storage-warning');w.innerHTML=esc(storageError)+' <button data-action="backup">Download saved data</button>';}

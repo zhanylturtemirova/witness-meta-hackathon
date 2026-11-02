@@ -17,3 +17,14 @@ test('connection arcs follow the sphere with correct end points, including an an
 test('every displayed shared story has valid coordinates and a readable fictional story',()=>{
  const ids=new Set();for(const s of SHARED_STORIES){assert.ok(!ids.has(s.id));ids.add(s.id);assert.ok(s.lon>=-180&&s.lon<=180&&s.lat>=-90&&s.lat<=90);if(s.shared){assert.ok(s.story.length>50);assert.ok(s.reason);}}
 });
+
+test('construction matches need shared work evidence; time and place alone do not imply the same occasion',()=>{
+ const event=MY_EVENTS.find(e=>e.id==='house-building'),matches=matchesFor(event);
+ assert.equal(matches.length,3);assert.ok(matches.some(s=>s.place==='Gdańsk, Poland'));
+ assert.equal(matches.find(s=>s.id==='tom-site').matchType,'same_occasion');
+ assert.equal(matches.find(s=>s.id==='jonas').matchType,'similar_experience');
+ assert.ok(!matches.some(s=>s.id==='bakery-example'));
+ assert.equal(matchesFor({...event,occasion:null}).find(s=>s.id==='tom-site').matchType,'similar_experience');
+ assert.equal(matchesFor({...event,evidenceKeys:['site-work']}).length,0);
+ assert.equal(matchesFor(event,[{...matches[0],shared:false}]).length,0);
+});

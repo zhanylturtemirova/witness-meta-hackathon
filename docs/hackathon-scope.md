@@ -31,6 +31,6 @@ See [Models and their roles](meta-models.md) for the AI plan.
 
 The longer-term formats — custom video interviews, a life-based game, a mini-series, and a globe of shared events — are described in [Future features](future-features.md).
 
-Connect is also available as a separate interactive preview with a fictional event timeline, globe, and example stories. It makes no model calls and does not use private interview data.
+Connect is also available as a separate interactive preview with a fictional event timeline, globe, and example stories. It makes no model calls. It can use a confirmed event locally to compare against fictional shared examples; it does not publish interview data.
 
 The flow also groups answers into an editable, confirmed life event and offers a video interview storyboard with a fictional host, setting, and tone. The browser can also export an illustrated film from scene images, narrator subtitles, and optional uploaded narration, without a video service. Scenes can use images generated with Meta Muse Image or uploaded images. [Flow and adapter details](ai-flow.md).

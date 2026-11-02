@@ -10,6 +10,8 @@ After the shell is saved, Witness can reopen, show saved stories, accept writing
 
 The service worker caches only a build-generated list of public app files. Earth textures cache on demand when Connect is visited under the active service worker; a first visit before worker activation may need one connected return visit. Private audio and generated images remain in IndexedDB, not the public shell cache. API routes, POSTs, unknown paths, external requests, and URLs with query parameters bypass it.
 
+If another tab has already saved newer data, the stale tab stops saving and offers **Download this tab’s draft** or **Reload saved version**. It does not merge concurrent editing sessions. Keep one editing tab open when recording or shaping a story.
+
 Keep downloaded story backups: browser storage is not a permanent archive, and clearing site data removes it.
 
 ## Updates

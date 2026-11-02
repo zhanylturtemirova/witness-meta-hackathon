@@ -142,3 +142,7 @@ test('editing the passage while a proposal is pending invalidates it',()=>{
  assert.equal(acceptEditorProposal(p,s.id,'My sister was with me, tidied.',binding),false);
  assert.equal(s.text,'That day, my sister came along.');
 });
+test('editor bindings reject answer objects passed instead of source references',()=>{
+ const p=newProject('small-moment');addAnswer(p,'A quiet morning.');createStory(p);
+ assert.throws(()=>captureEditorBinding(p,p.story.passages[0].id,p.answers),/source answers/);
+});

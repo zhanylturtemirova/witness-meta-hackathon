@@ -2,7 +2,7 @@
 
 Choose a confirmed event from your collection to find related fictional stories. The event's city is the origin on Earth. Your event stays on your device; choosing it does not publish it or send it to a model.
 
-The sidebar switches between your confirmed events and five example events. Drafts and events with changed source answers stay out of Connect until reviewed. Dates such as “around 2019” remain unchanged. An event without a recognised city can still be read and compared, but has no invented map origin. The small city gazetteer is in `web/connect-events.js`; it is not a worldwide geocoder.
+The sidebar switches between your confirmed events and five example events. Use **Review event →** in the collection to edit details, inspect source answers and confirm an extracted event. Drafts and events with changed source answers stay out of Connect until reviewed. A confirmed event covering the entire conversation can also drive its film plan. Dates such as “around 2019” remain unchanged. An event without a recognised city can still be read and compared, but has no invented map origin. The small city gazetteer is in `web/connect-events.js`; it is not a worldwide geocoder.
 
 ## Earth and stories
 

@@ -51,6 +51,7 @@ async function loadApp(storageJSON, fetchImpl) {
     html: () => els['#app'].innerHTML,
     saved: () => JSON.parse(store.get('witness.stories.v1')),
     snapshot: () => store.get('witness.stories.v1'),
+    externalWrite: data => store.set('witness.stories.v1',JSON.stringify(data)),
     async click(action, id, extra) {
       const button = {disabled: false, dataset: {action, ...(id === undefined ? {} : {id}), ...(extra || {})}};
       await Promise.all(handlers.click.map(fn => fn({target: {closest: () => button}, preventDefault() {}})));
@@ -237,4 +238,25 @@ test('source controls open the exact cited revision, current or superseded', asy
   const modal2 = app.els['#modal-content'].innerHTML;
   assert.ok(modal2.includes('wrote letters'));
   assert.ok(modal2.includes('current wording'));
+});
+
+test('editor button produces an actionable verified suggestion and acceptance keeps the source answer',async()=>{
+ const p=newProject('small-moment','A quiet morning');addAnswer(p,'I remember the kettle rattling.');createStory(p);
+ const passage=p.story.passages[0],original=p.answers[0].text;
+ const app=await loadApp(seedJSON([p],p,'story'),offlineFetch);
+ await app.click('editor-suggest',passage.id);
+ assert.ok(app.html().includes('Use this wording'),'a fresh proposal must not be discarded as stale');
+ await app.click('editor-accept',passage.id);
+ const saved=app.saved().projects[0];assert.equal(saved.story.passages[0].edited,true);assert.equal(saved.answers[0].text,original);
+ assert.equal(saved.story.passages[0].sourceRevision,1);
+});
+
+test('a stale tab cannot overwrite a newer story saved by another tab',async()=>{
+ const p=weeklySeed('Original tab');const app=await loadApp(seedJSON([p],p,'story'),offlineFetch);
+ const newer=app.saved();newer.projects[0].title='Newer work from another tab';app.externalWrite(newer);
+ await app.click('editor-suggest',p.story.passages[0].id);
+ assert.equal(app.saved().projects[0].title,'Newer work from another tab');
+ assert.ok(app.els['#storage-warning'].innerHTML.includes('will not overwrite'));
+ assert.ok(app.els['#storage-warning'].innerHTML.includes('Download this tab'));
+ assert.equal(app.html().includes('Use this wording'),false);
 });

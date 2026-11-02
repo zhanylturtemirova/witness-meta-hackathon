@@ -2,10 +2,10 @@ import {connectEventsFor} from './connect-events.js';
 import {suggestedPrompt,promptOptions,useMemoryPrompt} from './memory-prompts.js';
 import {mountVideoExport,unmountVideoExport} from './video-export.js';
 import {witnessAI,projectInput,aiStatus} from './ai-client.js';
-import {saveEvent,confirmEvent,eventStale,saveVideo,saveVerifiedEvent,captureEventGeneration,eventGenerationStale,answerSignature,acceptCollectionEvent,removeCollectionEvent,entryStatus} from './event-model.js';
+import {saveEvent,confirmEvent,eventStale,saveVideo,saveVerifiedEvent,captureEventGeneration,eventGenerationStale,answerSignature,acceptCollectionEvent,removeCollectionEvent,entryStatus,confirmCollectionEvent,eventContentSignature} from './event-model.js';
 import {eventMarkup,videoMarkup} from './event-view.js';
 import {connectMarkup,mountConnect,unmountConnect,sharedStoryMarkup} from './connect.js';
-import {voiceMarkup,mountVoice,voiceBusy,leaveVoice,startVoiceCapture} from './voice.js';
+import {voiceMarkup,mountVoice,voiceBusy,voicePendingSaves,leaveVoice,startVoiceCapture} from './voice.js';
 import {INTERVIEW_FIXTURES,fixtureById,buildDemoProject,buildDemoStarter} from './demo-fixtures.js';
 import {runArchivist} from './archivist.js';
 import {sourcesChanged} from './ai-contracts.js';
@@ -16,10 +16,10 @@ import {mediaDelete,MEDIA_RECORDINGS,MEDIA_IMAGES} from './media-store.js';
 import {TOPICS,newProject,nextQuestion,addAnswer,reviseAnswer,hasUncertainty,createStory,isStale,refreshPassage,exportStory,exampleProject,validProject,setReviewDraft,reviewText,setInterviewer,resumePoint,passageProposal,dismissProposal,homeQuestion,needsContinue,captureEditorBinding,editorBindingFresh,acceptEditorProposal} from './domain.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const key='witness.stories.v1';let storageError='',loadError=false;
+const key='witness.stories.v1';let storageError='',loadError=false,lastSavedRaw=null,storageConflict=false;
 let state={version:1,projects:[],active:null,view:'home',homeQuestionOffset:0};
 let questionDismissed=false;
-try {const raw=localStorage.getItem(key);if(raw){const data=JSON.parse(raw);if(data.version!==1||!Array.isArray(data.projects)||!data.projects.every(validProject))throw Error();state={...state,...data};let backfilled=false;for(const p of state.projects){if(p.event&&!p.event.id){p.event.id=crypto.randomUUID();backfilled=true;}if(p.event&&!p.events){p.events=[{...p.event}];backfilled=true;}}if(backfilled)save();}}
+try {const raw=localStorage.getItem(key);lastSavedRaw=raw;if(raw){const data=JSON.parse(raw);if(data.version!==1||!Array.isArray(data.projects)||!data.projects.every(validProject))throw Error();state={...state,...data};let backfilled=false;for(const p of state.projects){if(p.event&&!p.event.id){p.event.id=crypto.randomUUID();backfilled=true;}if(p.event&&!p.events){p.events=[{...p.event}];backfilled=true;}}if(backfilled)save();}}
 catch {storageError='Saved stories could not be opened. Download your saved data before resetting this browser.';loadError=true;}
 let timer;
 let aiSeq=0;
@@ -119,7 +119,7 @@ async function requestEditor(p,passageId,provider='auto'){
  const s=p.story?.passages.find(x=>x.id===passageId),a=p.answers.find(a=>a.id===s?.sourceId);
  if(!s||!a)return;
  const answers=[{id:a.id,revision:a.revision,text:a.text,question:a.question}];
- const binding=captureEditorBinding(p,passageId,answers);
+ const binding=captureEditorBinding(p,passageId,answers.map(a=>({answerId:a.id,revision:a.revision})));
  editorFlow[passageId]={phase:'pending',error:'',requestId:id,binding};
  save();render();
  try{
@@ -169,7 +169,22 @@ async function requestWeekly(p,provider='auto'){
   save();render();
  }
 }
-function save(){if(loadError)return false;try{localStorage.setItem(key,JSON.stringify(state));storageError='';const label=$('#save-label');if(label)label.textContent='Saved in this browser';return true;}catch{storageError='Your browser could not save this change. Keep this tab open and download your story before leaving.';const label=$('#save-label');if(label)label.textContent='Not saved — download a copy';let b=$('#storage-warning');if(b){b.hidden=false;b.textContent=storageError;}return false;}}
+function paintStorageWarning(){
+ const box=$('#storage-warning');if(box){box.hidden=false;box.innerHTML=esc(storageError)+(storageConflict?' <button data-action="backup-current">Download this tab’s draft</button> <button data-action="reload-latest">Reload saved version</button>':'');}
+ const label=$('#save-label');if(label)label.textContent='Not saved — download a copy';
+}
+function checkStorageVersion(){
+ if(localStorage.getItem(key)!==lastSavedRaw){storageConflict=true;storageError='Witness changed in another tab. This tab will not overwrite those changes. Download any draft here before reloading the saved version.';paintStorageWarning();}
+ return !storageConflict;
+}
+function save(){
+ if(loadError)return false;
+ try{
+  if(!checkStorageVersion())return false;
+  const next=JSON.stringify(state);localStorage.setItem(key,next);lastSavedRaw=next;storageError='';
+  const label=$('#save-label');if(label)label.textContent='Saved in this browser';return true;
+ }catch{storageError='Your browser could not save this change. Keep this tab open and download your story before leaving.';paintStorageWarning();return false;}
+}
 function current(){return state.projects.find(p=>p.id===state.active);}
 function toast(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(timer);timer=setTimeout(()=>$('#toast').classList.remove('show'),3000);}
 const arrow='<span aria-hidden="true">↗</span>';
@@ -196,6 +211,7 @@ function render(){
  if(state.view==='connect')mountConnect({selected:state.connectEvent,events:connectEventsFor(state.projects),onSelect:id=>{state.connectEvent=id;save();},onStory:s=>showDialog(sharedStoryMarkup(s)),onReview:id=>go('review',id)});
  if(state.view==='interview')mountVoice(p,{onNotify:toast,onSave:()=>save(),onRevisit:answerId=>{go('review');const t=document.querySelector('#edit-'+CSS.escape(answerId));if(t){t.scrollIntoView({block:'center'});t.focus({preventScroll:true});}},onApply:text=>{const input=$('#answer-input');const combined=[input.value.trim(),text].filter(Boolean).join('\n\n');if(combined.length>20000){toast('This answer is too long. Shorten it before adding the transcript.');return false;}input.value=combined;p.draft=combined;save();return true;}});
  if(state.view==='interview')mountQuestionSpeech({key:JSON.stringify([p.id,p.answers.length,p.questionIndex,nextQuestion(p)]),text:nextQuestion(p),pending:interviewFlow.projectId===p.id&&interviewFlow.phase!=='idle',canSpeak:()=>!voiceBusy()&&!document.hidden&&($('#voice-playback')?.paused!==false)});
+ if(storageConflict)paintStorageWarning();
  if(loadError){const w=$('#storage-warning');w.innerHTML=esc(storageError)+' <button data-action="backup">Download saved data</button>';}
 }
 function home(){
@@ -246,7 +262,7 @@ function promptDialog(p){const options=promptOptions(p);showDialog(`<button clas
 function interview(p){return `<div class="page-heading"><p class="eyebrow">CONVERSATION</p><h1>${esc(p.title)}</h1><p>Answer by voice or text. Your words are saved as you go.</p></div><section class="conversation" aria-label="Conversation"><div class="conversation-title"><div><strong>${esc(p.title)}</strong></div><span class="question-count">${p.answers.length} ${p.answers.length===1?'answer':'answers'}</span></div><div class="answer-list">${p.answers.map((a,i)=>`<article class="conversation-turn"><p class="past-question"><span>0${i+1}</span>${esc(a.question)}</p><div class="answer-bubble">${esc(a.text).replace(/\n/g,'<br>')}</div></article>`).join('')}</div>${memoryNudge(p)}<div class="current-question"><p class="eyebrow">CURRENT QUESTION</p><p>${esc(nextQuestion(p))}</p></div>${questionSpeechMarkup()}${voiceMarkup()}<form id="answer-form"><label class="sr-only" for="answer-input">Your answer</label><textarea id="answer-input" name="answer" rows="5" maxlength="20000" placeholder="Take your time. Start with what comes to mind…">${esc(p.draft)}</textarea><div class="composer-bottom"><span id="draft-status">Your words are saved as you write.</span><button type="submit" class="button primary small" ${interviewFlow.projectId===p.id&&interviewFlow.phase==='pending'?'disabled':''}>${interviewFlow.projectId===p.id&&interviewFlow.phase==='pending'?'Getting question…':'Keep going <span>↑</span>'}</button></div></form>${interviewFlow.projectId===p.id&&interviewFlow.phase==='pending'?'<div class="gentle-note" role="status"><p>Getting your next question… Your answer is saved.</p></div>':''}${interviewFlow.projectId===p.id&&interviewFlow.phase==='error'?`<div class="stale-banner" role="alert"><p>${esc(interviewFlow.error)}</p><div class="event-actions"><button class="button primary small" data-action="interview-retry">Retry live request</button><button class="text-button" data-action="interview-mock">Continue with mock question</button></div><p class="muted">Your answers are saved. Retrying will not add the same answer twice.</p></div>`:''}${p.interviewer?.suggestedNextStep==='review_event'?'<div class="gentle-note"><p>You have the beginnings of an event. Keep talking, or take a look at what you have gathered.</p><button class="text-button" data-action="review">Review my event →</button></div>':''}<div class="interview-bottom"><button class="text-button" data-action="skip" ${interviewFlow.projectId===p.id&&interviewFlow.phase==='pending'?'disabled':''}>Skip this question</button><button class="text-button" data-action="review" ${!p.answers.length?'disabled':''}>I’m ready to review →</button></div><details class="provenance"><summary>About these questions</summary><p id="ai-mode-label">${esc(interviewerNote(p))}</p></details></section>`;}
 function archivistMarkup(p){
  const flow=archivistFlow.projectId===p.id?archivistFlow:{phase:'idle',error:'',drafts:[]};
- const entries=(p.events||[]).map(e=>`<article class="memory-card"><div><h3>${esc(e.title)}</h3><p>${esc(entryStatus(e,p.answers))}${e.dateText?` · ${esc(e.dateText)}`:''}${e.location?` · ${esc(e.location)}`:''}</p></div><div class="memory-card-actions"><button class="text-button" data-action="entry-remove" data-id="${e.id}">Remove</button></div></article>`).join('');
+ const entries=(p.events||[]).map(e=>`<article class="memory-card"><div><h3>${esc(e.title)}</h3><p>${esc(entryStatus(e,p.answers))}${e.dateText?` · ${esc(e.dateText)}`:''}${e.location?` · ${esc(e.location)}`:''}</p></div><div class="memory-card-actions"><button class="text-button" data-action="entry-review" data-id="${e.id}">Review event →</button><button class="text-button" data-action="entry-remove" data-id="${e.id}">Remove</button></div></article>`).join('');
  const drafts=(flow.drafts||[]).map((d,i)=>{
   if(d.status!=='verified')return `<div class="proposal" role="status"><p><strong>${esc(d.label)} could not be checked.</strong> Nothing was kept.</p><ul class="issue-list">${d.issues.map(x=>`<li>${esc(x.reason)}: “${esc(x.statement.slice(0,140))}”</li>`).join('')}</ul><div class="event-actions"><button class="text-button" data-action="archivist-dismiss" data-id="${i}">Dismiss</button></div></div>`;
   const by=d.provider==='mock'?'a local check':'Meta '+(d.model||'muse-spark-1.3');
@@ -254,6 +270,11 @@ function archivistMarkup(p){
  }).join('');
  const partial=flow.partial?`<div class="gentle-note" role="status"><p>Kept ${flow.partial.completed} of ${flow.partial.total} groups (${flow.partial.reason==='timeout'?'the shared deadline ran out':'the shared call budget ran out'}). Nothing else was started; run again for the rest.</p></div>`:'';
  return `<section class="event-panel" aria-label="Event collection"><div class="section-heading"><div><p class="eyebrow">DISTINCT EVENTS</p><h2>Your <em>collection.</em></h2></div></div><details class="provenance"><summary>About this step</summary><p>Groups these answers into separate occasions, then checks each draft against its own answers. One shared deadline and call budget cover the whole run. Drafts enter your collection only when you keep them.</p></details><div class="archivist-entries">${entries||'<p class="muted">No events in this story yet.</p>'}</div><div class="event-actions"><button class="button primary small" data-action="archivist-run" ${flow.phase==='pending'||!p.answers.length?'disabled':''}>${flow.phase==='pending'?'Finding events…':'Find distinct events'}</button></div>${flow.phase==='pending'?'<div class="gentle-note" role="status"><p>Grouping your answers and checking each draft… Nothing is kept yet.</p><div class="event-actions"><button class="text-button" data-action="archivist-cancel">Stop</button></div></div>':''}${flow.phase==='error'?`<div class="stale-banner" role="alert"><p>${esc(flow.error)}</p><div class="event-actions"><button class="button primary small" data-action="archivist-retry">Retry live request</button><button class="text-button" data-action="archivist-mock">Continue with mock grouping</button></div></div>`:''}${partial}${drafts}</section>`;
+}
+function collectionEventDialog(p,id){
+ const entry=(p.events||[]).find(e=>e.id===id);if(!entry)return;
+ const stale=entryStatus(entry,p.answers)==='Needs review'||sourcesChanged(entry.sourceRefs||[],p.answers);
+ showDialog(`<button class="modal-close" data-action="close" aria-label="Close event">×</button><h2 id="modal-title">Review this event.</h2><p>Check the details in your own words. An approximate date can stay approximate. Confirming keeps this event private.</p>${stale?'<p class="stale-banner" role="alert">Its source answers changed. Close this window and find the events again before confirming.</p>':''}<form id="collection-event-form" data-entry="${esc(entry.id)}"><input type="hidden" name="capture" value="${esc(eventContentSignature(entry))}"><label for="collection-title">Event title</label><input id="collection-title" name="title" maxlength="120" value="${esc(entry.title)}" required><label for="collection-summary">What happened</label><textarea id="collection-summary" name="summary" maxlength="6000" rows="5" required>${esc(entry.summary)}</textarea><label for="collection-date">When, as you remember it</label><input id="collection-date" name="dateText" maxlength="500" value="${esc(entry.dateText)}"><label for="collection-location">Event location</label><input id="collection-location" name="location" maxlength="500" value="${esc(entry.location)}"><details class="match-evidence"><summary>Source answers (${entry.sourceRefs.length})</summary>${entry.sourceRefs.map(r=>{const a=p.answers.find(a=>a.id===r.answerId);return `<p>${esc(a?.question)}</p><blockquote>${esc(a?.text)}</blockquote>`;}).join('')}</details><button type="submit" class="button primary" ${stale?'disabled':''}>Confirm this event</button></form>`);
 }
 function review(p){const uncertain=p.answers.filter(hasUncertainty);return `<div class="page-heading"><p class="eyebrow">REVIEW</p><h1>Check your <em>answers.</em></h1><p>Confirm each answer, then shape them into a story.</p></div>${eventMarkup(p,eventFlow.projectId===p.id?eventFlow:{phase:'idle',error:''},eventNote(p))}${archivistMarkup(p)}<div class="review-layout"><section>${uncertain.length?`<div class="gentle-note"><p>You left room for uncertainty in ${uncertain.length===1?'one answer':`${uncertain.length} answers`}. You can keep it that way.</p></div>`:''}<div class="review-list">${p.answers.map((a,i)=>`<form class="review-card" data-answer="${a.id}"><div class="review-label"><span>ANSWER ${(i+1).toString().padStart(2,'0')}</span><span>Revision ${a.revision}${a.createdAt?` · Recorded ${new Intl.DateTimeFormat('en',{month:'short',day:'numeric'}).format(a.createdAt)}`:''}</span></div><label for="edit-${a.id}">${esc(a.question)}</label><textarea id="edit-${a.id}" name="answer" rows="4" maxlength="20000">${esc(reviewText(p,a))}</textarea><div class="review-foot">${hasUncertainty(a)?`<label class="checkbox-label"><input type="checkbox" data-uncertainty="${a.id}" ${a.uncertaintyReviewed?'checked':''}> Keep the uncertainty in my story</label>`:'<span>Your original wording stays available.</span>'}<button class="text-button" type="submit">Save answer ↗</button></div></form>`).join('')}</div></section><aside class="review-summary"><span class="eyebrow">NEXT STEP</span><h2>${p.answers.length} ${p.answers.length===1?'answer':'answers'} <em>collected.</em></h2><p>Assemble them into a story draft, or keep answering.</p><label for="story-name">Give it a working title</label><input id="story-name" maxlength="120" value="${esc(p.title)}"><button class="button primary full" data-action="assemble">${p.story?'Open your story':'Assemble a story draft'} ${arrow}</button><small>You can come back to these answers anytime.</small></aside></div>`;}
 function proposalCard(p,s){
@@ -281,7 +302,7 @@ function startRecordingNow(){const entry=homeQuestion(state.homeQuestionOffset||
 function download(name,text,type='text/markdown;charset=utf-8'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 document.addEventListener('click',async e=>{
  const b=e.target.closest('[data-action]');if(!b||b.disabled)return;e.preventDefault();const action=b.dataset.action,id=b.dataset.id,p=current();if(voiceBusy()){toast('Stop the recording or wait for transcription before leaving.');return;}
- try {switch(action){
+ try {if(!checkStorageVersion()&&!['backup-current','backup','reload-latest','download','close','source','weekly-source','weekly-read'].includes(action)){toast('Another tab has newer changes. Download your draft here or reload the saved version.');return;}switch(action){
  case'home':go('home');break;case'connect':go('connect');break;case'new':newDialog();break;case'close':$('#modal').close();break;
  case'topic':start(id);break;
  case'prompt-browse':if(interviewFlow.phase!=='pending')promptDialog(p);break;
@@ -307,6 +328,7 @@ document.addEventListener('click',async e=>{
  case'archivist-cancel':aiSeq++;archivistFlow={phase:'idle',error:'',requestId:0,projectId:null,drafts:[],partial:null};save();render();break;
  case'archivist-accept':{const d=archivistFlow.drafts[+id];if(!d?.event)break;try{acceptCollectionEvent(p,d.event,{provider:d.provider,model:d.model,verification:{status:'verified',attempts:d.attempts}});archivistFlow.drafts.splice(+id,1);save();render();toast('Event kept in your collection.');}catch(err){toast(err.message);}break;}
  case'archivist-dismiss':archivistFlow.drafts.splice(+id,1);save();render();break;
+ case'entry-review':collectionEventDialog(p,id);break;
  case'entry-remove':{const e=(p.events||[]).find(x=>x.id===id);showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">Remove this event?</h2><p>“${esc(e?.title||'Untitled')}” leaves your collection. Your answers and story stay.</p><button class="button primary" data-action="entry-remove-confirm" data-id="${id}">Remove event</button>`);break;}
  case'entry-remove-confirm':removeCollectionEvent(p,id);save();render();toast('Event removed from your collection.');break;
  case'editor-suggest':await requestEditor(p,id,'auto');break;
@@ -344,12 +366,15 @@ case'interview-mock':if(interviewFlow.phase!=='error')break;await requestIntervi
  case'download':{const slug=p.story.title.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,70)||'my-story';download(slug+'.md',exportStory(p));toast('Your story has been downloaded.');break;}
  case'delete':{const x=state.projects.find(p=>p.id===id);showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">Delete this story?</h2><p>“${esc(x.story?.title||x.title)}” and its saved answers, recordings, and scene images will be removed from this browser.</p><div class="dialog-actions"><button class="button outline" data-action="close">Keep it</button><button class="button primary" data-action="confirm-delete" data-id="${id}">Delete story</button></div>`);break;}
  case'confirm-delete':{const gone=state.projects.find(x=>x.id===id);state.projects=state.projects.filter(x=>x.id!==id);if(gone){for(const r of gone.recordings||[])mediaDelete(MEDIA_RECORDINGS,r.id).catch(()=>{});for(const s of gone.video?.scenes||[])if(s.image?.id)mediaDelete(MEDIA_IMAGES,s.image.id).catch(()=>{});}go('home',null);toast('Story deleted.');break;}
+ case'backup-current':download('witness-this-tab-draft.json',JSON.stringify(state,null,2),'application/json');break;
+ case'reload-latest':if(voiceBusy()||voicePendingSaves()){toast('Wait for your audio to finish saving before reloading.');break;}window.location.reload();break;
  case'backup':download('witness-saved-data.json',localStorage.getItem(key)||'{}','application/json');break;
  case'about':showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">About <em>Witness.</em></h2><p>Answer one question at a time, by voice or text. Review your answers, shape them into a story, and trace each passage to its source.</p><p>Interview questions and event drafts use live AI when the local server enables it, with a local preview as backup. Story assembly and video storyboards use local rules, not AI rewriting.</p><p>Your stories are stored in this browser. Clearing browser data removes them, so download anything you want to keep.</p><button class="button primary" data-action="close">Got it ↗</button>`);break;
  }}catch(err){toast(err.message);}
 });
 document.addEventListener('submit',async e=>{
  if(e.target.id==='answer-form'){e.preventDefault();if(interviewFlow.phase==='pending')return;if(voiceBusy()){toast('Stop recording before continuing.');return;}const p=current(),text=new FormData(e.target).get('answer');try{addAnswer(p,text);}catch(err){toast(err.message);return;}leaveVoice();save();await requestInterview(p,'auto');}
+ else if(e.target.id==='collection-event-form'){e.preventDefault();const p=current(),f=Object.fromEntries(new FormData(e.target));try{confirmCollectionEvent(p,e.target.dataset.entry,f,f.capture);save();render();toast('Event confirmed. It is now available in Connect.');}catch(err){toast(err.message);}}
  else if(e.target.id==='event-form'){e.preventDefault();const p=current(),f=Object.fromEntries(new FormData(e.target));try{confirmEvent(p,{title:f.title,summary:f.summary,dateText:f.dateText.trim()||null,location:f.location.trim()||null,people:f.people.split(',').map(x=>x.trim()).filter(Boolean),themes:f.themes.split(',').map(x=>x.trim()).filter(Boolean)});save();render();toast('Event confirmed.');}catch(err){toast(err.message);}}
  else if(e.target.id==='video-form'){e.preventDefault();const p=current(),options=Object.fromEntries(new FormData(e.target));try{saveVideo(p,(await witnessAI.video({...projectInput(p),event:p.event,options})).result,options);save();render();}catch(err){toast(err.message);}}
  else if(e.target.matches('.review-card')){e.preventDefault();const p=current();try{reviseAnswer(p,e.target.dataset.answer,new FormData(e.target).get('answer'));save();render();toast('Answer saved.');}catch(err){toast(err.message);}}
@@ -373,3 +398,7 @@ refreshAIMode();
 
 document.addEventListener('pointerover',e=>{const button=e.target.closest('.nav-connect');if(button&&!button.contains(e.relatedTarget))button.classList.remove('tooltip-dismissed');});
 document.addEventListener('focusin',e=>{if(e.target.matches('.nav-connect'))e.target.classList.remove('tooltip-dismissed');});
+
+window.addEventListener('storage',event=>{
+ if(event.key===key&&event.newValue!==lastSavedRaw){checkStorageVersion();invalidatePending();}
+});

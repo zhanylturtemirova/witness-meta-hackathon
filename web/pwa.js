@@ -12,12 +12,13 @@ window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();pro
 window.addEventListener('appinstalled',()=>{prompt=null;install.hidden=true;});
 install.addEventListener('click',async()=>{if(!prompt)return;const choice=prompt;prompt=null;install.hidden=true;await choice.prompt();await choice.userChoice;});
 update.addEventListener('click',()=>{
+ if(document.querySelector('[data-action=backup-current]')){status.hidden=false;status.textContent='Download this tab’s draft or reload the saved version before updating.';return;}
  if(voiceBusy()||voicePendingSaves()){status.hidden=false;status.textContent='Finish recording or saving your audio before updating.';return;}
  if(waiting){waiting.postMessage({type:'WITNESS_ACTIVATE'});}
 });
 if('serviceWorker' in navigator&&window.isSecureContext){
  let reloadRequested=false;
- update.addEventListener('click',()=>{if(waiting&&!voiceBusy()&&!voicePendingSaves())reloadRequested=true;});
+ update.addEventListener('click',()=>{if(waiting&&!voiceBusy()&&!voicePendingSaves()&&!document.querySelector('[data-action=backup-current]'))reloadRequested=true;});
  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloadRequested)window.location.reload();});
  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{
   const offer=()=>{if(reg.waiting&&navigator.serviceWorker.controller){waiting=reg.waiting;update.hidden=false;}};

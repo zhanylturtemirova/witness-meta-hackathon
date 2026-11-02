@@ -116,7 +116,7 @@ export function dismissProposal(p,passageId) {
 export function captureEditorBinding(p,passageId,sourceRefs) {
   const passage=p.story?.passages.find(x=>x.id===passageId);
   if(!passage)throw new Error('Passage not found.');
-  if(!Array.isArray(sourceRefs)||!sourceRefs.length)throw new Error('A wording suggestion needs its source answers.');
+  if(!Array.isArray(sourceRefs)||!sourceRefs.length||!sourceRefs.every(r=>typeof r.answerId==='string'&&Number.isInteger(r.revision)))throw new Error('A wording suggestion needs its source answers.');
   return {projectId:p.id,passageId:passage.id,passageText:passage.text,sourceRefs:sourceRefs.map(r=>({answerId:r.answerId,revision:r.revision}))};
 }
 export function editorBindingFresh(p,binding) {

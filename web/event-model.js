@@ -6,7 +6,7 @@ export function saveEvent(p,result,meta={}){
  validateAIResult('event',result,p.answers);
  const v=meta.verification;
  const verification=v&&v.status==='verified'?{status:'verified',attempts:v.attempts||1,verifier:v.verifier||'mock',content:eventContentSignature(result),answers:answerSignature(p.answers)}:null;
- p.event={...result,id:p.event?.id||crypto.randomUUID(),provider:meta.provider||'mock',model:meta.model||null,revision:(p.event?.revision||0)+1,confirmed:false,...(verification?{verification}:{})};
+ p.event={...result,id:p.event?.id||findEntryByAnswers(p,result.sourceRefs.map(r=>r.answerId))?.id||crypto.randomUUID(),provider:meta.provider||'mock',model:meta.model||null,revision:(p.event?.revision||0)+1,confirmed:false,...(verification?{verification}:{})};
  p.updatedAt=Date.now();upsertCollectionEvent(p,p.event);return p.event;
 }
 export function upsertCollectionEvent(p,entry){
@@ -34,6 +34,21 @@ export function removeCollectionEvent(p,entryId){
 }
 export function collectionEntryStale(entry,answers){return sourcesChanged(entry.sourceRefs||[],answers);}
 export function entryStatus(entry,answers){if(!entry)return null;if(!entry.confirmed)return 'Draft';return collectionEntryStale(entry,answers)?'Needs review':'Confirmed';}
+export function confirmCollectionEvent(p,id,fields,capture){
+ const entry=(p.events||[]).find(e=>e.id===id);
+ if(!entry)throw Error('This event is no longer in your collection.');
+ if(capture!==eventContentSignature(entry))throw Error('This event changed. Reopen it before confirming.');
+ if(collectionEntryStale(entry,p.answers))throw Error('Source answers changed. Find the events again before confirming this draft.');
+ const next={...entry,title:String(fields.title||'').trim(),summary:String(fields.summary||'').trim(),dateText:String(fields.dateText||'').trim()||null,location:String(fields.location||'').trim()||null};
+ validateEventShape(next);validateRefs(next.sourceRefs,p.answers);
+ next.confirmed=true;next.revision=(entry.revision||0)+1;
+ next.confirmedSources=next.sourceRefs.map(r=>({...r}));
+ upsertCollectionEvent(p,next);
+ // A single event covering the entire conversation can also drive its film.
+ // A subset must not quietly replace another current event.
+ if(p.event?.id===id||(!p.event&&next.sourceRefs.length===p.answers.length))p.event={...next};
+ return next;
+}
 export function eventVerification(p){
  const v=p.event?.verification;
  if(!v||v.status!=='verified')return null;

@@ -84,3 +84,22 @@ The archivist instructions now preserve uncertainty in labels as well as full
 drafts. Those changes passed offline checks but have not been retested live.
 This is one source comparison by the coding assistant, not a human evaluation
 or a broad accuracy result. The raw report remains under ignored `exports/`.
+
+## Live voice and editor check
+
+A separate bounded run used three real requests in 13.9 seconds: Muse Voice
+Transcribe → Muse Spark editor → Muse Spark verifier. It used a synthetic
+English WAV containing a fictional first-job memory, through the existing
+speech handler and text adapter. No app configuration or user stories changed.
+
+The transcript retained “around 2019” and uncertainty about the starting month.
+It contained a repeated “company” and doubled final punctuation. The editor
+removed those artifacts while retaining the work details and uncertainty, with
+an exact source ID and revision. The verifier accepted the first proposal with
+no issues. No repair or additional request was made.
+
+This checks one synthetic recording and one editor proposal; it does not
+establish microphone capture, performance on other accents, a transcription
+accuracy score, or broad editorial quality. The verifier verdict is a model
+assessment. The raw fictional report remains in ignored
+`exports/live-voice-editor-2026-11-02.json`.

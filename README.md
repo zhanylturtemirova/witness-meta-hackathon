@@ -44,7 +44,7 @@ npm run dev
 
 Open `http://127.0.0.1:4173`. Answer the question for today, continue an unfinished conversation, or try a fictional example.
 
-My space shows one optional question (**Record an answer** / **Write instead**, **Another question**, **Not now**), exact resume points for unfinished conversations, a private event collection with confirmed/draft status, and a memory library of finished stories with their original recordings. Provenance details (local preview vs live Meta model) live under “About” disclosures instead of badges.
+My space opens on a quiet desk scene with one optional question (**Record a moment** / **Write instead**, **Another question**, **Not now**) and a single shelf holding every story with its exact resume place, event confirmation status, and original recordings. Fictional examples are labelled; a quiet entry point tries one. Provenance details (local preview vs live Meta model) live under “About” disclosures.
 
 The demo includes a contextual interview, editable life events, confirmation, video storyboard planning, illustrated memory films, and stories with passage-level sources and Markdown export. Mocks are the default and make no model calls; live interview/event requests are disabled by default. Stories, recordings, and scene images stay saved in this browser until discarded.
 

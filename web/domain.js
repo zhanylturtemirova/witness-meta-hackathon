@@ -153,7 +153,7 @@ export const HOME_QUESTIONS=[
  {topic:'small-moment',question:'What stayed with you from today?'},
  {topic:'small-moment',question:'What did breakfast look like when you were little?'},
  {topic:'person',question:'Who first made your work feel possible?'},
- {topic:'small-moment',question:'What do you remember about your first day in that city?'},
+ {topic:'small-moment',question:'What do you remember about the first day somewhere new?'},
  {topic:'turning-point',question:'What is a small choice that changed an ordinary day?'},
  {topic:'person',question:'What is something someone once showed you how to do?'},
  {topic:'small-moment',question:'What sound takes you back to a particular room?'}

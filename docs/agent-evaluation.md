@@ -85,6 +85,20 @@ drafts. Those changes passed offline checks but have not been retested live.
 This is one source comparison by the coding assistant, not a human evaluation
 or a broad accuracy result. The raw report remains under ignored `exports/`.
 
+## Meta-live FW-01 observation (approved 8-call cap, no rerun)
+
+A bounded meta-live run on fictional case `FW-01` used 8 calls in 87107 ms
+(`exports/meta-preview-fw-01.json`, ignored, no keys or private interviews).
+The event draft verified on attempt 2 and the editor proposal on attempt 1.
+
+- Interviewer: “What was it like finishing that fence by yourself?”
+- Event: date text keeps the uncertainty (“2019, I think, the summer I left
+  school”); location is null; people list Ray; no rejected-candidate detail
+  beyond the attempt count.
+- Editor: verified first attempt; kept phrases retained.
+- Human fidelity check of question, uncertainty and locations is recorded as
+  required; the model verdict alone is not a quality score.
+
 ## Live voice and editor check
 
 A separate bounded run used three real requests in 13.9 seconds: Muse Voice

@@ -15,6 +15,9 @@ import {storyAudioMarkup,mountStoryAudio,unmountStoryAudio} from './story-audio.
 import {mediaDelete,MEDIA_RECORDINGS,MEDIA_IMAGES} from './media-store.js';
 import {TOPICS,newProject,nextQuestion,addAnswer,reviseAnswer,hasUncertainty,createStory,isStale,refreshPassage,exportStory,exampleProject,validProject,setReviewDraft,reviewText,setInterviewer,resumePoint,passageProposal,dismissProposal,homeQuestion,needsContinue,captureEditorBinding,editorBindingFresh,acceptEditorProposal,STARTER_CHOICES,starterChoice} from './domain.js';
 import {SAVED_KEY,LIKES_KEY,addQuote,removeQuote,purgeProjectQuotes,toggleLike,isLiked,loadCollection,storeCollection,validateStorySelection,cleanSelectionText} from './saved.js';
+import {createAccount,startGoogleSignIn,isOAuthReturn,refreshAccount,signOutAccount,noteAccountSwitch,listCloud} from './auth.js';
+import {accountDialogHtml,accountNavLabel} from './account.js';
+import {saveCloudProject,openCloudProject,importGuard,buildLocalCopy,cloudRevisionOf,cloudSaveFollowup} from './cloud.js';
 import {SHARED_STORIES} from './connect-data.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -32,6 +35,11 @@ function persistSaved(){const err=storeCollection(localStorage,SAVED_KEY,savedQu
 function persistLikes(){const err=storeCollection(localStorage,LIKES_KEY,likedStories);if(err){likedStories=loadCollection(localStorage,LIKES_KEY).list;throw Error(err);}}
 // The shared story currently open in the Connect reading card, if any.
 let openSharedStory=null;
+// Account state is session-scoped and DOM-free (see auth.js). The Supabase
+// SDK client loads lazily on the first explicit Account action, never on
+// guest Home. Local guest stories are never merged with cloud data.
+let account=createAccount();
+let authClient=null,authEventsWired=false,pendingCloudProjectId=null,openedCloudRow=null;
 let timer;
 let aiSeq=0;
 let aiMode={checked:false,liveAvailable:false};
@@ -211,7 +219,7 @@ function render(){
  unmountConnect();
  unmountStoryAudio();
  const p=current();if(!['home','connect','saved'].includes(state.view)&&!p)state.view='home';
- $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" data-action="home" aria-label="Witness home"><img src="./mark.svg" alt="" width="34" height="34">witness<span class="brand-dot">.</span></a><nav aria-label="Main navigation"><button class="nav-item ${state.view==='home'?'active':''}" data-action="home"><span>${icons.home}</span> My space <span class="nav-count">${state.projects.length}</span></button><button class="nav-item ${state.view==='saved'?'active':''}" data-action="saved"><span aria-hidden="true">❧</span> Saved <span class="nav-count">${savedQuotes.length}</span></button><button class="nav-item nav-connect ${state.view==='connect'?'active':''}" data-action="connect" aria-label="Connect" aria-describedby="connect-nav-tip"><span class="nav-connect-icon" aria-hidden="true">◎</span><span class="nav-connect-copy"><strong>Connect</strong><small>Connect through your stories</small></span><span class="nav-tooltip" id="connect-nav-tip" role="tooltip"><strong>Connect through your stories</strong><span>Find people with experiences like yours.</span></span></button><button class="nav-item" data-action="new"><span>＋</span> New conversation</button></nav><div class="sidebar-bottom"><small>Private · stored on this device</small></div></aside>
+ $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" data-action="home" aria-label="Witness home"><img src="./mark.svg" alt="" width="34" height="34">witness<span class="brand-dot">.</span></a><nav aria-label="Main navigation"><button class="nav-item ${state.view==='home'?'active':''}" data-action="home"><span>${icons.home}</span> My space <span class="nav-count">${state.projects.length}</span></button><button class="nav-item ${state.view==='saved'?'active':''}" data-action="saved"><span aria-hidden="true">❧</span> Saved <span class="nav-count">${savedQuotes.length}</span></button><button class="nav-item nav-connect ${state.view==='connect'?'active':''}" data-action="connect" aria-label="Connect" aria-describedby="connect-nav-tip"><span class="nav-connect-icon" aria-hidden="true">◎</span><span class="nav-connect-copy"><strong>Connect</strong><small>Connect through your stories</small></span><span class="nav-tooltip" id="connect-nav-tip" role="tooltip"><strong>Connect through your stories</strong><span>Find people with experiences like yours.</span></span></button><button class="nav-item" data-action="account"><span aria-hidden="true">◐</span> <span data-account-label>${esc(accountNavLabel(account))}</span></button><button class="nav-item" data-action="new"><span>＋</span> New conversation</button></nav><div class="sidebar-bottom"><small>Private · stored on this device</small></div></aside>
  <div class="workspace"><header class="topbar"><span class="breadcrumb">My space <span>/</span> ${state.view==='home'?'My space':state.view==='connect'?'Connect':state.view==='saved'?'Saved':esc(p?.title)}</span><div class="topbar-right"><span class="save-state" id="save-label">${storageError?'Not saved — download a copy':'Saved in this browser'}</span><button class="about-button" data-action="about"><span aria-hidden="true">ⓘ</span> About</button></div></header>
  <div id="storage-warning" class="storage-warning" role="alert" ${storageError?'':'hidden'}>${esc(storageError)}</div>
  <main id="main" tabindex="-1">${state.view==='home'?home():state.view==='connect'?connectMarkup():state.view==='saved'?savedView():flow(p)}</main><footer class="footer"><span>Your stories stay in this browser.</span><span>No streaks. Nothing is due.</span></footer></div>
@@ -243,8 +251,8 @@ function home(){
   ?`<section class="space-restore"><button class="text-button" data-action="home-show">Show today’s question</button></section>`
   :`<section class="space-today" aria-labelledby="space-today-q"><div class="room-hero"><div class="room-copy"><p class="date-line">${esc(dateLine)} · A question for today</p><h1 id="space-today-q">${esc(entry.question)}</h1><p class="muted">Talk for a minute, or write a few lines.</p><div class="space-actions"><button class="button primary" data-action="home-record"><span aria-hidden="true">●</span> Record a moment</button><button class="button outline" data-action="home-write">Write instead</button></div><div class="space-alt"><button class="text-button" data-action="help-start">Help me start →</button><button class="text-button" data-action="home-another">Another question</button><button class="text-button" data-action="home-notnow">Not now</button></div></div>${roomScene()}</div></section>`;
  const shelf=projects.length
-  ?`<section class="space-library" aria-label="Your story collection"><div class="section-heading"><h2>Your shelf</h2><span>${projects.length} ${projects.length===1?'story':'stories'}</span></div><p class="muted collection-hint">Conversations, moments and stories to return to.</p>${projects.map((p,i)=>collectionCard(p,i===0)).join('')}</section>`
-  :`<section class="space-library" aria-label="Your story collection"><div class="section-heading"><h2>Your shelf</h2><span>Empty for now</span></div><p class="muted">A recording, a few words — start wherever you like.</p></section>`;
+  ?`<section class="space-library" aria-label="Your story collection"><div class="section-heading"><h2>Your shelf</h2><span>${projects.length} ${projects.length===1?'story':'stories'}</span></div><p class="muted collection-hint">Conversations, moments and stories to return to. On this device.</p>${projects.map((p,i)=>collectionCard(p,i===0)).join('')}</section>`
+  :`<section class="space-library" aria-label="Your story collection"><div class="section-heading"><h2>Your shelf</h2><span>Empty for now</span></div><p class="muted">A recording, a few words — start wherever you like. Everything here stays on this device.</p></section>`;
  return `${today}${shelf}<section class="space-more"><p class="muted">Curious first? <button class="text-button" data-action="demo-browse">Try a fictional example →</button></p></section>`;
 }
 function weeklyParagraphRows(p,story){
@@ -311,8 +319,56 @@ function editorMarkup(p,s){
  const by=f.provider==='mock'?'a local preview':'Meta '+(f.model||'muse-spark-1.3');
  return `<div class="proposal" role="status"><p><strong>Suggested wording.</strong> Proposed by ${by} and checked against your answer. Your original answer is never changed.</p><blockquote>${esc(f.proposal)}</blockquote>${f.keptPhrases?.length?`<p class="muted">Kept from your wording: ${esc(f.keptPhrases.join(', '))}.</p>`:''}<div class="event-actions"><button class="button primary small" data-action="editor-accept" data-id="${s.id}">Use this wording</button><button class="text-button" data-action="editor-reject" data-id="${s.id}">Keep mine</button></div></div>`;
 }
-function story(p){if(!p.story)return review(p);const stale=p.story.passages.filter(s=>isStale(p,s)).length;return `<div class="story-top"><div><p class="eyebrow">STORY DRAFT · PRIVATE</p></div><div class="story-top-actions"><button class="button outline" data-action="download">↓ Download story</button>${p.event?.confirmed&&!eventStale(p)?'<button class="button outline" data-action="video-open">Plan a film →</button>':''}</div></div><div class="story-layout"><section class="paper" aria-label="Story draft"><div class="paper-meta"><span>${p.example?'FICTIONAL EXAMPLE':'PRIVATE'}</span><span>IN YOUR WORDS</span></div><label class="sr-only" for="story-title">Story title</label><textarea class="story-title" id="story-title" maxlength="120" rows="1">${esc(p.story.title)}</textarea><div class="paper-rule"></div>${stale?`<div class="stale-banner" role="status">${stale} ${stale===1?'source has':'sources have'} changed. Open the marked sources to review.</div>`:''}${p.story.passages.map((s,i)=>`<article class="passage ${isStale(p,s)?'stale':''}"><label class="sr-only" for="passage-${s.id}">Story passage ${i+1}</label><textarea class="passage-text" id="passage-${s.id}" data-passage="${s.id}" rows="${Math.max(3,Math.ceil(s.text.length/65))}" maxlength="20000">${esc(s.text)}</textarea>${proposalCard(p,s)}${editorMarkup(p,s)}<div class="passage-bottom"><span>${s.edited?'Edited by you':'From your answer'}</span><span class="passage-actions"><button class="text-button" data-action="passage-save" data-id="${s.id}">Save passage</button><button class="text-button" data-action="editor-suggest" data-id="${s.id}">Suggest wording</button><button class="source-button" data-action="source" data-id="${s.id}">${isStale(p,s)?'<i class="warning-dot"></i> Needs review · ':''}↗ Source ${i+1}</button></span></div></article>`).join('')}</section><aside class="story-aside"><span class="eyebrow">ABOUT THIS DRAFT</span><p>Edit any passage. Open its source to see the answer it came from.</p><div class="stat-line"><span>Words</span><strong id="word-count">${wordCount(p)}</strong></div><div class="stat-line"><span>Source answers</span><strong>${p.story.passages.length}</strong></div><button class="text-button" data-action="review">← Back to your answers</button><button class="text-button" data-action="interview">Add another memory +</button><button class="text-button" data-action="weekly-open">Draft a weekly story →</button><div class="demo-explainer"><span>HOW THIS DRAFT WORKS</span><p>Your answers are assembled without AI rewriting. Your edits and source links are saved in this browser.</p></div></aside></div>${storyAudioMarkup(p)}`;}
+function story(p){if(!p.story)return review(p);const stale=p.story.passages.filter(s=>isStale(p,s)).length;return `<div class="story-top"><div><p class="eyebrow">STORY DRAFT · PRIVATE</p></div><div class="story-top-actions"><button class="button outline" data-action="download">↓ Download story</button>${p.event?.confirmed&&!eventStale(p)?'<button class="button outline" data-action="video-open">Plan a film →</button>':''}</div></div><div class="story-layout"><section class="paper" aria-label="Story draft"><div class="paper-meta"><span>${p.example?'FICTIONAL EXAMPLE':'PRIVATE'}</span><span>IN YOUR WORDS</span></div><label class="sr-only" for="story-title">Story title</label><textarea class="story-title" id="story-title" maxlength="120" rows="1">${esc(p.story.title)}</textarea><div class="paper-rule"></div>${stale?`<div class="stale-banner" role="status">${stale} ${stale===1?'source has':'sources have'} changed. Open the marked sources to review.</div>`:''}${p.story.passages.map((s,i)=>`<article class="passage ${isStale(p,s)?'stale':''}"><label class="sr-only" for="passage-${s.id}">Story passage ${i+1}</label><textarea class="passage-text" id="passage-${s.id}" data-passage="${s.id}" rows="${Math.max(3,Math.ceil(s.text.length/65))}" maxlength="20000">${esc(s.text)}</textarea>${proposalCard(p,s)}${editorMarkup(p,s)}<div class="passage-bottom"><span>${s.edited?'Edited by you':'From your answer'}</span><span class="passage-actions"><button class="text-button" data-action="passage-save" data-id="${s.id}">Save passage</button><button class="text-button" data-action="editor-suggest" data-id="${s.id}">Suggest wording</button><button class="source-button" data-action="source" data-id="${s.id}">${isStale(p,s)?'<i class="warning-dot"></i> Needs review · ':''}↗ Source ${i+1}</button></span></div></article>`).join('')}</section><aside class="story-aside"><span class="eyebrow">ABOUT THIS DRAFT</span><p>Edit any passage. Open its source to see the answer it came from.</p><div class="stat-line"><span>Words</span><strong id="word-count">${wordCount(p)}</strong></div><div class="stat-line"><span>Source answers</span><strong>${p.story.passages.length}</strong></div><button class="text-button" data-action="review">← Back to your answers</button><button class="text-button" data-action="interview">Add another memory +</button><button class="text-button" data-action="weekly-open">Draft a weekly story →</button><button class="text-button" data-action="account" data-id="${p.id}">Save to my account →</button><div class="demo-explainer"><span>HOW THIS DRAFT WORKS</span><p>Your answers are assembled without AI rewriting. Your edits and source links are saved in this browser.</p></div></aside></div>${storyAudioMarkup(p)}`;}
 function showDialog(html){$('#modal-content').innerHTML=html;$('#modal').showModal();}
+// Account dialog helpers. The auth SDK loads only here, on explicit Account
+// action — never on guest Home. Repaints touch the modal and the nav label
+// directly so an open dialog survives (render() rebuilds #app, modal included).
+async function ensureAuthClient(){
+ if(authClient)return authClient;
+ const {loadSupabaseClient}=await import('./auth-client.js');
+ authClient=await loadSupabaseClient();
+ if(!authEventsWired){
+  authEventsWired=true;
+  authClient.auth.onAuthStateChange((_event,session)=>{
+   const uid=session?.user?.id||null;
+   if(noteAccountSwitch(account,uid)){
+    account.userId=uid;account.status=uid?'signed-in':'signed-out';
+    if(uid&&session?.user?.email)account.email=session.user.email;
+    openedCloudRow=null;pendingCloudProjectId=null;
+    repaintAccountDialog();paintAccountNav();
+   }
+  });
+ }
+ return authClient;
+}
+function pendingCloudProject(){
+ return state.projects.find(p=>p.id===pendingCloudProjectId)||null;
+}
+function accountDialogBody(){
+ return accountDialogHtml(account,{pendingProjectTitle:pendingCloudProject()?.story?.title||pendingCloudProject()?.title||'',openedRow:openedCloudRow});
+}
+function repaintAccountDialog(){
+ if(!($('#modal')?.open&&document.querySelector('#modal-content [data-account-dialog]')))return;
+ showDialog(accountDialogBody());
+}
+function paintAccountNav(){
+ const el=document.querySelector('[data-account-label]');
+ if(el)el.textContent=accountNavLabel(account);
+}
+async function openAccount(projectId){
+ pendingCloudProjectId=projectId||null;
+ try{await ensureAuthClient();await refreshAccount(authClient,account);}
+ catch{account.error='Witness could not reach the sign-in service. You may be offline — your stories are unchanged.';}
+ if(account.status==='signed-in'&&account.userId&&authClient){
+  const uid=account.userId;
+  const pending=listCloud(authClient,account);
+  showDialog(accountDialogBody());paintAccountNav();
+  pending.then(()=>{if(account.userId!==uid)return;repaintAccountDialog();paintAccountNav();},()=>{if(account.userId!==uid)return;repaintAccountDialog();});
+  return;
+ }
+ showDialog(accountDialogBody());paintAccountNav();
+}
 function starterDialog(){showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">Where would you like to <em>begin?</em></h2><p>Pick one concrete thread. You can wander, skip, or change direction any time — no need to tell it in order.</p><div class="modal-topics">${STARTER_CHOICES.map(c=>`<button data-action="starter" data-id="${c.id}"><div><strong>${esc(c.label)}</strong><small>${esc(c.hint)} “${esc(c.question)}”</small></div><span aria-hidden="true">↗</span></button>`).join('')}</div>`);}
 function startFromChoice(choiceId){const c=starterChoice(choiceId);if(!c)return null;const p=newProject(c.topic);setInterviewer(p,{result:{question:c.question},provider:'prompt',model:null});state.projects.push(p);return p;}
 // Connect reading card: Like/Unlike plus saving an exact phrase. The dialog
@@ -348,9 +404,16 @@ function startWithQuestion(focusComposer){const entry=homeQuestion(state.homeQue
 function startRecordingNow(){const entry=homeQuestion(state.homeQuestionOffset||0);const p=newProject(entry.topic);setInterviewer(p,{result:{question:entry.question},provider:'prompt',model:null});state.projects.push(p);go('interview',p.id);document.querySelector('#voice-box')?.scrollIntoView({block:'center'});startVoiceCapture();}
 function download(name,text,type='text/markdown;charset=utf-8'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 document.addEventListener('click',async e=>{
- const b=e.target.closest('[data-action]');if(!b||b.disabled)return;e.preventDefault();const action=b.dataset.action,id=b.dataset.id,p=current();if(voiceBusy()){toast('Stop the recording or wait for transcription before leaving.');return;}
- try {if(!checkStorageVersion()&&!['backup-current','backup','reload-latest','download','close','source','weekly-source','weekly-read','connect-like','connect-save','connect-save-para','passage-save','saved-remove','saved-unlike'].includes(action)){toast('Another tab has newer changes. Download your draft here or reload the saved version.');return;}if(['connect-save','connect-save-para','passage-save','saved-remove'].includes(action)){const latest=loadCollection(localStorage,SAVED_KEY);if(latest.error)throw Error(latest.error);savedQuotes=latest.list;}if(['connect-like','saved-unlike'].includes(action)){const latest=loadCollection(localStorage,LIKES_KEY);if(latest.error)throw Error(latest.error);likedStories=latest.list;}switch(action){
+ const b=e.target.closest('[data-action]');if(!b||b.disabled)return;e.preventDefault();const action=b.dataset.action,id=b.dataset.id,p=current();if(voiceBusy()){if(action==='cloud-save'||action==='cloud-import'){account.notice='';account.error='Stop the recording or wait for transcription before saving or importing.';repaintAccountDialog();return;}toast('Stop the recording or wait for transcription before leaving.');return;}
+ try {if(!checkStorageVersion()&&!['backup-current','backup','reload-latest','download','close','source','weekly-source','weekly-read','connect-like','connect-save','connect-save-para','passage-save','saved-remove','saved-unlike','account','account-google','account-signout','cloud-refresh','cloud-open','cloud-save','cloud-import'].includes(action)){toast('Another tab has newer changes. Download your draft here or reload the saved version.');return;}if(['connect-save','connect-save-para','passage-save','saved-remove'].includes(action)){const latest=loadCollection(localStorage,SAVED_KEY);if(latest.error)throw Error(latest.error);savedQuotes=latest.list;}if(['connect-like','saved-unlike'].includes(action)){const latest=loadCollection(localStorage,LIKES_KEY);if(latest.error)throw Error(latest.error);likedStories=latest.list;}switch(action){
  case'home':go('home');break;case'connect':go('connect');break;case'saved':go('saved');break;case'new':newDialog();break;case'close':$('#modal').close();break;
+ case'account':await openAccount(id||null);break;
+ case'account-google':{try{await ensureAuthClient();await startGoogleSignIn(authClient,account,location.origin+location.pathname);}catch{account.error='Witness could not reach the sign-in service. Your stories on this device are unchanged.';}repaintAccountDialog();paintAccountNav();break;}
+ case'account-signout':{try{await ensureAuthClient();await signOutAccount(authClient,account);}catch{account.error='Witness could not reach the sign-in service. Your stories on this device are unchanged.';}openedCloudRow=null;pendingCloudProjectId=null;repaintAccountDialog();paintAccountNav();break;}
+ case'cloud-refresh':{try{await ensureAuthClient();await listCloud(authClient,account);}catch{account.cloudError='The cloud list could not be reached. You may be offline — your stories on this device are unchanged.';}repaintAccountDialog();break;}
+ case'cloud-save':{const target=pendingCloudProject()||p;if(!target||!target.story){account.notice='';account.error='Finish your first story first — then you can keep a cloud copy.';repaintAccountDialog();break;}try{await ensureAuthClient();const saveUid=account.userId;const r=await saveCloudProject(authClient,account,target,cloudRevisionOf(target,account.userId));if(account.userId!==saveUid||!account.userId){account.notice='';account.error='The account changed while saving. Nothing was changed on this device.';repaintAccountDialog();break;}if(!r.ok){account.notice='';account.error=r.error;repaintAccountDialog();break;}target.cloudRevision=r.revision;target.cloudOwnerId=account.userId;target.updatedAt=Date.now();save();account.error='';account.notice=cloudSaveFollowup({saveUid,userId:account.userId,save:r,list:null}).notice;try{const listUid=account.userId;const lr=await listCloud(authClient,account);if(account.userId!==listUid||!account.userId){account.notice='';account.error='The account changed while saving. Nothing was changed on this device.';}else if(!lr.ok){account.notice=cloudSaveFollowup({saveUid,userId:account.userId,save:r,list:lr}).notice;}}catch{/* listCloud reports through account.cloudError; the confirmed save notice stands */}repaintAccountDialog();}catch{account.notice='';account.error='The cloud copy could not be saved. Your story on this device is unchanged.';repaintAccountDialog();}break;}
+ case'cloud-open':{try{await ensureAuthClient();const openUid=account.userId;const r=await openCloudProject(authClient,account,id);if(account.userId!==openUid||!account.userId)break;if(!r.ok){account.error=r.error;repaintAccountDialog();break;}openedCloudRow=r.row;repaintAccountDialog();}catch{account.error='That cloud copy could not be opened. Nothing was changed.';repaintAccountDialog();}break;}
+ case'cloud-import':{const problem=importGuard({storageConflict,capturePending:voiceBusy()||voicePendingSaves()});if(problem){account.notice='';account.error=problem;repaintAccountDialog();break;}const row=openedCloudRow&&openedCloudRow.id===id?openedCloudRow:null;if(!row){account.notice='';account.error='Open the cloud copy first, then make a local copy.';repaintAccountDialog();break;}const built=buildLocalCopy(row,{userId:account.userId,existingIds:state.projects.map(x=>x.id)});if(!built.ok){account.notice='';account.error=built.error;repaintAccountDialog();break;}state.projects.push(built.project);state.active=built.project.id;state.view='home';openedCloudRow=null;pendingCloudProjectId=null;account.notice='';account.error='';save();$('#modal').close();render();toast('Copied to this device from cloud revision '+row.revision+'. The cloud copy is unchanged.');break;}
  case'help-start':starterDialog();break;
  case'starter':{const x=startFromChoice(id);if(!x)break;$('#modal').close();go('interview',x.id);$('#answer-input')?.focus();break;}
  case'connect-like':{const r=toggleLike(likedStories,id);likedStories=r.likes;persistLikes();if(r.error){connectNote(r.error);break;}b.setAttribute('aria-pressed',String(r.liked));b.textContent=r.liked?'Unlike ♥':'Like ♡';connectNote(r.liked?'Liked on this device.':'Removed from your liked stories.');break;}
@@ -430,6 +493,7 @@ case'interview-mock':if(interviewFlow.phase!=='error')break;await requestIntervi
 document.addEventListener('submit',async e=>{
  if(e.target.id==='answer-form'){e.preventDefault();if(interviewFlow.phase==='pending')return;if(voiceBusy()){toast('Stop recording before continuing.');return;}const p=current(),text=new FormData(e.target).get('answer');try{addAnswer(p,text);}catch(err){toast(err.message);return;}leaveVoice();save();await requestInterview(p,'auto');}
  else if(e.target.id==='collection-event-form'){e.preventDefault();const p=current(),f=Object.fromEntries(new FormData(e.target));try{confirmCollectionEvent(p,e.target.dataset.entry,f,f.capture);save();render();toast('Event confirmed. It is now available in Connect.');}catch(err){toast(err.message);}}
+
  else if(e.target.id==='event-form'){e.preventDefault();const p=current(),f=Object.fromEntries(new FormData(e.target));try{confirmEvent(p,{title:f.title,summary:f.summary,dateText:f.dateText.trim()||null,location:f.location.trim()||null,people:f.people.split(',').map(x=>x.trim()).filter(Boolean),themes:f.themes.split(',').map(x=>x.trim()).filter(Boolean)});save();render();toast('Event confirmed.');}catch(err){toast(err.message);}}
  else if(e.target.id==='video-form'){e.preventDefault();const p=current(),options=Object.fromEntries(new FormData(e.target));try{saveVideo(p,(await witnessAI.video({...projectInput(p),event:p.event,options})).result,options);save();render();}catch(err){toast(err.message);}}
  else if(e.target.matches('.review-card')){e.preventDefault();const p=current();try{reviseAnswer(p,e.target.dataset.answer,new FormData(e.target).get('answer'));save();render();toast('Answer saved.');}catch(err){toast(err.message);}}
@@ -448,8 +512,21 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{if(e.target.id==='memory-nudges'){current().memoryNudges=e.target.checked;save();render();return;}if(e.target.dataset.uncertainty){const a=current().answers.find(a=>a.id===e.target.dataset.uncertainty);a.uncertaintyReviewed=e.target.checked;save();return;}if(e.target.id==='weekly-tz'){const p=current(),tz=e.target.value;if(!validTimeZone(tz))return;weeklyState(p);const g=groupAnswersByWeek(p.answers,tz),newest=g.weeks.length?g.weeks[0][0]:null;Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,weekStart:newest,timeZone:tz,selectedIds:newest?g.weeks[0][1].map(a=>a.id):[]});save();render();return;}if(e.target.id==='weekly-week'){const p=current();weeklyState(p);const list=(groupAnswersByWeek(p.answers,weeklyFlow.timeZone).weeks.find(w=>w[0]===e.target.value)?.[1])||[];Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,weekStart:e.target.value,selectedIds:list.map(a=>a.id)});save();render();return;}if(e.target.matches('.weekly-entry input')){const sel=new Set(weeklyFlow.selectedIds);e.target.checked?sel.add(e.target.value):sel.delete(e.target.value);weeklyFlow.selectedIds=[...sel];if(weeklyFlow.binding||weeklyFlow.proposal){Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,editing:false});save();render();return;}const n=$('#weekly-count');if(n)n.textContent=`${weeklyFlow.selectedIds.length} ${weeklyFlow.selectedIds.length===1?'entry':'entries'} selected.`;const gen=$('#weekly-generate');if(gen)gen.disabled=!weeklyFlow.selectedIds.length||weeklyFlow.phase==='pending';}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelector('.nav-connect')?.classList.add('tooltip-dismissed');}if((e.metaKey||e.ctrlKey)&&e.key==='Enter'&&e.target.id==='answer-input'){e.preventDefault();$('#answer-form').requestSubmit();}});
+// OAuth return only: when the URL carries ?code= or an access_token/error
+// fragment, the lazily loaded SDK exchanges/consumes it (detectSessionInUrl),
+// the address bar is cleaned (tokens never shown or logged), and Account
+// reopens. Normal guest loads never load the SDK or touch the network here,
+// and guest stories are never touched — callback errors surface safely.
+async function handleOAuthReturn(){
+ let href='';try{href=String(location.href);}catch{return;}
+ if(!isOAuthReturn(href))return;
+ try{await ensureAuthClient();}catch{}
+ await openAccount(null);
+ try{const u=new URL(href);u.search='';u.hash='';history.replaceState(null,'',u.toString());}catch{}
+}
 render();
 refreshAIMode();
+handleOAuthReturn();
 
 document.addEventListener('pointerover',e=>{const button=e.target.closest('.nav-connect');if(button&&!button.contains(e.relatedTarget))button.classList.remove('tooltip-dismissed');});
 document.addEventListener('focusin',e=>{if(e.target.matches('.nav-connect'))e.target.classList.remove('tooltip-dismissed');});

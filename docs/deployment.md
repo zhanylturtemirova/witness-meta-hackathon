@@ -7,7 +7,7 @@ describe the current code; items marked Needed are gaps to close.
 
 - Now: `npm run dev` builds `dist/` from `web/` and serves it with `/api/`
   on `http://127.0.0.1:4173`. `npm run build` produces the static `dist/`
-  Site, which runs without a backend and stays on mocks. Requires Node 20+.
+  Site, which runs without a backend and stays on mocks. Requires Node 22+ (matching `engines` in package.json).
 - Needed: no installer, auto-updater, or packaged app. No PWA manifest or
   service worker, so there is no install prompt and no offline page beyond
   what the browser caches.

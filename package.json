@@ -11,6 +11,10 @@
     "muse": "node scripts/muse.mjs"
   },
   "engines": {
-    "node": ">=20.12"
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "esbuild": "^0.28.2"
   }
 }

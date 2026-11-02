@@ -350,6 +350,8 @@ blockquote{border-left:3px solid var(--terra);padding:10px 16px;background:#f3ec
 .clip-scene img{display:block;width:100%;max-width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin-bottom:10px}
 .clip-scene input,.clip-inputs input,.clip-inputs select,.video-settings select{max-width:100%;min-width:0}
 .clip-scene label,.clip-inputs label{display:block;margin:12px 0 8px}
+.account-form label{display:block;margin:12px 0 6px;font-weight:500}
+.account-form input{width:100%;max-width:420px}
 .clip-scene small,.clip-inputs small{display:block;font-size:12px;line-height:1.6;margin-top:8px;color:#6f675a}
 .clip-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:20px}
 .clip-consent{align-items:flex-start;font-size:14px}

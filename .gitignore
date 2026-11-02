@@ -7,6 +7,7 @@ data/private/
 media/private/
 exports/
 node_modules/
+web/vendor/supabase.js
 .venv/
 __pycache__/
 *.pyc

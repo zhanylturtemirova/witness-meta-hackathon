@@ -72,18 +72,23 @@ requests only with explicit local server configuration.
 The Supabase Free project already exists in eu-west-1
 (https://fzsvvnkeybgtjqxbbqmk.supabase.co). To unblock accounts the owner
 provides the project URL and publishable key for browser access with RLS; no
-service-role key and no owned domain are needed for Supabase Auth. Custom SMTP
-is needed before sign-in mail reaches non-team addresses. No database migration
-has been applied yet, and no paid upgrades happen in this increment.
+service-role key and no owned domain are needed for Supabase Auth. Sign-in is
+Google OAuth (free, no SMTP needed): the Google client ID/secret are configured
+in the Supabase provider dashboard, never in the app. The witness_projects
+migration has been applied and strict rollback-only DB RLS checks returned
+PASS; no real app login has been tested yet, and no paid upgrades happen in
+this increment.
 
 Honest limits, from the owner's research of official pricing and docs:
 
 - Supabase Free: 50k monthly active users, 500 MB database, 1 GB file storage,
   2 active projects; projects pause after 1 week idle. Enough to build and pilot;
   media-heavy or idle-sensitive production outgrows it.
-- Auth email delivery to arbitrary users needs custom SMTP; the default sender
-  only reaches team addresses at 2 emails/hour. Without SMTP configured, real
-  users cannot receive sign-in mail.
+- Sign-in uses Google OAuth, included in Supabase Free with no SMTP: the owner
+  enables the Google provider with the callback
+  `https://fzsvvnkeybgtjqxbbqmk.supabase.co/auth/v1/callback` and allows the app
+  redirect (`http://127.0.0.1:4173/` locally, plus the hosted URL later).
+  Email-OTP forms are retired from the UI.
 - Clerk Hobby (50k monthly reportable users) remains the alternative, but it
   still needs a separate database and media store, and production requires an
   owned DNS domain.
@@ -92,7 +97,7 @@ Honest limits, from the owner's research of official pricing and docs:
 ## References
 
 - [Supabase Auth](https://supabase.com/docs/guides/auth)
-- [Supabase custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp)
+- [Google sign-in with Supabase](https://supabase.com/docs/guides/auth/social-login/auth-google)
 - [Supabase storage access control](https://supabase.com/docs/guides/storage/security/access-control)
 - [Clerk pricing](https://clerk.com/pricing)
 - [Clerk production deployment](https://clerk.com/docs/guides/development/deployment/production)

@@ -36,7 +36,7 @@ Run `npm run eval:agents` to rehearse the roles on fictional interviews without 
 
 ## Try it locally
 
-You need Node.js 20.12 or later. There are no package dependencies to install.
+You need Node.js 22 or later (package.json `engines` requires >=22.0.0). Run `npm install` first: the build vendors the official Supabase Auth SDK into a local bundle (loaded only on explicit Account action).
 
 ```bash
 npm run dev

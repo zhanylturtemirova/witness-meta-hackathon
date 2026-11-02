@@ -65,3 +65,22 @@ Actual transcription requires its own approved live call. A silent WAV fixture
 tests storage only; it does not test speech recognition. Device read-aloud is
 separate from Muse transcription. A physical microphone and a real phone still
 need a person to test recording, permission prompts and background behaviour.
+
+## First live observations
+
+The `FW-01` run used Muse Spark 1.3, six real requests and 84.7 seconds.
+The source interview was fictional. The run stopped at its call cap; no
+additional calls were made to complete the editor step.
+
+| Step | Observed result |
+| --- | --- |
+| Interviewer | Asked about finishing the fence and cited the relevant answers. The wording assumed that it affected a later action. |
+| Archivist | Grouped all four answers into one work experience with valid references. Its label presented the tentative year as definite. |
+| Event and verifier | The event passed on the second candidate. The final text retained the uncertainty, left the place unknown and preserved Ray and the work details. The report does not retain the first rejected candidate, so its exact issue cannot be reconstructed. |
+| Editor and verifier | Not executed: the event repair consumed the remaining call budget. |
+
+The interviewer instructions now explicitly avoid presupposing consequences.
+The archivist instructions now preserve uncertainty in labels as well as full
+drafts. Those changes passed offline checks but have not been retested live.
+This is one source comparison by the coding assistant, not a human evaluation
+or a broad accuracy result. The raw report remains under ignored `exports/`.

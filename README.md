@@ -57,7 +57,7 @@ npm test
 npm run build
 ```
 
-The build writes the static app to `dist/`.
+The build writes the static app and offline shell to `dist/`. Witness can be installed as a PWA; saved stories and local writing/recording remain available offline after setup. Meta tools need a connection. [Installation and offline behaviour](docs/pwa.md).
 
 ## Connect
 

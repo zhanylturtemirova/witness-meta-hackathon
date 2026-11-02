@@ -8,7 +8,7 @@ import {handleSpeech} from '../server/transcribe.mjs';
 import {handleAI} from '../server/ai/routes.mjs';
 if(existsSync('.env'))process.loadEnvFile('.env');
 const root = path.resolve('dist');
-const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg'};
+const types = {'.webmanifest':'application/manifest+json','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg'};
 const server = http.createServer(async (req,res) => {
   try {
     const url = new URL(req.url, 'http://'+req.headers.host);

@@ -391,3 +391,11 @@ blockquote{border-left:3px solid var(--terra);padding:10px 16px;background:#f3ec
 #video-form{grid-template-columns:minmax(0,1fr);min-width:0}
 #video-form>button{max-width:100%;white-space:normal}
 .tag{font-size:12px}
+
+/* Saved phrases and Connect keeps: same paper, same quiet buttons. */
+.connect-keep-row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 6px}
+.passage-save-link{margin:-6px 0 12px;padding:2px 0;font-size:13px}
+dialog .passage-save-link{color:var(--terra-deep)}
+.connect-save-note{min-height:1.4em;font-size:14px}
+.saved-list{display:grid;gap:12px;margin:14px 0 26px}
+.saved-text{margin:0 0 8px;font-size:17px;line-height:1.55}

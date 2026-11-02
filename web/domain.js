@@ -3,6 +3,19 @@ export const TOPICS = [
   { id:'person', name:'Someone who stayed with you', hint:'The people who made a difference.', opening:'Who would you like to remember, and where does your story with them begin?' },
   { id:'small-moment', name:'An ordinary, unforgettable day', hint:'The little things that turned out to matter.', opening:'Which ordinary day or small moment do you keep coming back to?' }
 ];
+// Concrete first steps for someone who does not know where to begin.
+// Each choice binds an exact opening question to the new conversation via
+// the existing interviewer prompt path; choosing one makes no network call.
+export const STARTER_CHOICES = [
+ { id:'today', label:'Something from today', hint:'A small moment from the last day or so.', topic:'small-moment', question:'What stayed with you from today?' },
+ { id:'person', label:'A person', hint:'Someone you keep thinking about.', topic:'person', question:'Who would you like to remember, and where does your story with them begin?' },
+ { id:'place', label:'A place', hint:'Somewhere you can still picture.', topic:'small-moment', question:'Is there a place you keep coming back to in your memory? What do you remember about being there?' },
+ { id:'first', label:'A first time', hint:'Something you did for the first time.', topic:'turning-point', question:'What is a first time you still remember clearly? What happened?' },
+ { id:'unsure', label:'I’m not sure', hint:'Start with whatever is on your mind.', topic:'small-moment', question:'What is on your mind today? Even a small fragment is enough to begin.' }
+];
+export function starterChoice(id) {
+ return STARTER_CHOICES.find(c=>c.id===id) || null;
+}
 const followups = [
   'Where were you, and what do you remember noticing around you?',
   'Who else was part of that moment? What do you remember about them?',

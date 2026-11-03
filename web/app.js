@@ -1,12 +1,12 @@
 import {connectEventsFor} from './connect-events.js';
-import {suggestedPrompt,promptOptions,useMemoryPrompt} from './memory-prompts.js';
+import {MEMORY_PROMPTS,suggestedPrompt,promptOptions,useMemoryPrompt} from './memory-prompts.js';
 import {mountVideoExport,unmountVideoExport} from './video-export.js';
 import {witnessAI,projectInput,aiStatus} from './ai-client.js';
 import {saveEvent,confirmEvent,eventStale,saveVideo,saveVerifiedEvent,captureEventGeneration,eventGenerationStale,answerSignature,acceptCollectionEvent,removeCollectionEvent,entryStatus,confirmCollectionEvent,eventContentSignature} from './event-model.js';
 import {eventMarkup,videoMarkup} from './event-view.js';
 import {connectMarkup,mountConnect,unmountConnect} from './connect.js';
 import {voiceMarkup,mountVoice,voiceBusy,voicePendingSaves,leaveVoice,startVoiceCapture} from './voice.js';
-import {INTERVIEW_FIXTURES,fixtureById,buildDemoProject,buildDemoStarter} from './demo-fixtures.js';
+import {DEMO_COLLECTION,fixtureById,buildDemoProject,buildDemoStarter} from './demo-fixtures.js';
 import {runArchivist} from './archivist.js';
 import {sourcesChanged} from './ai-contracts.js';
 import {WEEK_TIMEZONES,deviceTimeZone,validTimeZone,weekRangeLabel,entryDateLabel,groupAnswersByWeek,captureWeeklyBinding,weeklyBindingFresh,acceptWeeklyStory,removeWeeklyStory,sourceVersionText,paragraphSources} from './weekly.js';
@@ -19,6 +19,20 @@ import {createAccount,startGoogleSignIn,isOAuthReturn,refreshAccount,signOutAcco
 import {accountDialogHtml,accountNavLabel} from './account.js';
 import {saveCloudProject,openCloudProject,importGuard,buildLocalCopy,cloudRevisionOf,cloudSaveFollowup} from './cloud.js';
 import {SHARED_STORIES} from './connect-data.js';
+import {BOOKS_KEY,loadBooks,storeBooks,blankBook,addChapter,setBookTitle,setChapterHeading,moveChapter,excludeChapter,includeChapter,refreshChapter,removeChapter,MAX_BOOKS} from './biography.js';
+import {bookViewHtml,tryExportBook,bookFileName} from './book-ui.js';
+import {fetchPublished,listMyPublications,publishCopyV2,unpublishCopy,loadProfile,saveProfile,loadMyLikes,toggleRealLike,loadMyQuotes,saveCloudQuote,communityError,PUBLIC_COLUMNS} from './community.js';
+import {createShareDraft,draftFromRow,readShareForm,buildSharePreview,shareDialogHtml} from './share-ui.js';
+import {beginRealFetch,settleRealFetch,realStoryDialogHtml,discoveryStoryDialogHtml,quoteFromSelection} from './connect-real.js';
+import {createCommunityUI,capturePreviewBinding,checkPreviewBinding,togglePickedTopic,buildRealViewState,privateEventFor,shapeCloudQuotes,resetCommunityUI,isRealLiked,applyLikeResult,withdrawPublicationCache,discoveryQueryFor,rebaseDiscoveryResults,cancelDiscovery} from './community-ui.js';
+import {buildDiscoveryCandidates,beginDiscoverySearch,isDiscoveryBindingFresh,settleDiscoverySearch,fetchDiscoveryResults,mapFreshDiscoveryResults,setDiscoveryFilters} from './discovery.js';
+import {parsePushIntent,describeEnableReadiness,validatePushPrefs} from './push.js';
+import {pushSectionHtml,pushSavedEntryHtml,PUSH_PREFS_FORM_ID} from './push-ui.js';
+// Static import on purpose: the Enable click must call
+// requestPushPermissionSync() synchronously, in the same task as the click,
+// so even a dynamic import() (an await) before it would lose the Safari
+// user gesture.
+import {pushSupported,callPushApi,preparePushEnable,requestPushPermissionSync,finishPushEnable,disableOnThisDevice} from './push-client.js';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key='witness.stories.v1';let storageError='',loadError=false,lastSavedRaw=null,storageConflict=false;
@@ -32,6 +46,37 @@ let savedQuotes=[],likedStories=[],savedNotice='';
 try {const r=loadCollection(localStorage,SAVED_KEY);savedQuotes=r.list;if(r.error)savedNotice=r.error;} catch {savedNotice='Your saved phrases could not be opened.';}
 try {likedStories=loadCollection(localStorage,LIKES_KEY).list;} catch {likedStories=[];}
 function persistSaved(){const err=storeCollection(localStorage,SAVED_KEY,savedQuotes);if(err){savedQuotes=loadCollection(localStorage,SAVED_KEY).list;savedNotice=err;throw Error(err);}return true;}
+// My book drafts live under their own versioned key and never touch the
+// stories schema above. The collection loads once; every save passes the
+// raw text back for a compare-and-swap, so an older tab never clobbers a
+// newer one, and corrupt data is never overwritten.
+let books=[],activeBookId=null,bookRaw=null,bookNotice='',bookStorageError='',bookCorrupt=false;
+try{const r=loadBooks(localStorage);books=r.books;bookRaw=r.raw;bookCorrupt=!!r.corruptRaw;if(r.error)bookStorageError=r.error;activeBookId=books[0]?.id||null;}catch{bookStorageError='Your book drafts could not be opened. Your stories are unchanged.';bookCorrupt=true;}
+function activeBook(){return books.find(b=>b.id===activeBookId)||books[0]||null;}
+function bookHtml(){return bookViewHtml({books,activeId:activeBookId,projects:state.projects,notice:bookNotice,storageError:bookStorageError});}
+function commitBooks(next,notice=''){
+ if(bookCorrupt){bookNotice='Your saved book drafts could not be opened, so nothing was overwritten. Your stories are unchanged.';render();return false;}
+ const err=storeBooks(localStorage,next,bookRaw);
+ if(err){bookNotice=err;render();return false;}
+ const r=loadBooks(localStorage);
+ books=r.books;bookRaw=r.raw;bookCorrupt=!!r.corruptRaw;bookStorageError=r.error||'';
+ if(!books.some(b=>b.id===activeBookId))activeBookId=books[0]?.id||null;
+ bookNotice=notice;render();return true;
+}
+function mutateBook(fn){
+ const book=activeBook();
+ if(!book){bookNotice='Start a book first.';render();return;}
+ const r=fn(book);
+ if(r.error){bookNotice=r.error;render();return;}
+ commitBooks(books.map(b=>b.id===book.id?r.book:b));
+}
+window.addEventListener('storage',e=>{
+ if(e.key!==BOOKS_KEY)return;
+ const r=loadBooks(localStorage);
+ if(r.corruptRaw){bookCorrupt=true;bookStorageError=r.error;bookNotice='';}
+ else{bookCorrupt=false;books=r.books;bookRaw=r.raw;bookStorageError=r.error||'';if(!books.some(b=>b.id===activeBookId))activeBookId=books[0]?.id||null;bookNotice='Your books changed in another tab. Showing the saved version.';}
+ if(state.view==='book')render();
+});
 function persistLikes(){const err=storeCollection(localStorage,LIKES_KEY,likedStories);if(err){likedStories=loadCollection(localStorage,LIKES_KEY).list;throw Error(err);}}
 // The shared story currently open in the Connect reading card, if any.
 let openSharedStory=null;
@@ -40,6 +85,10 @@ let openSharedStory=null;
 // guest Home. Local guest stories are never merged with cloud data.
 let account=createAccount();
 let authClient=null,authEventsWired=false,pendingCloudProjectId=null,openedCloudRow=null;
+// Real community UI state (Share dialog, Connect real mode, cloud
+// phrases). Local stories, drafts, likes, and saved phrases live above
+// and are never mutated by the flows below.
+let communityUI=createCommunityUI();
 let timer;
 let aiSeq=0;
 let aiMode={checked:false,liveAvailable:false};
@@ -218,23 +267,23 @@ function render(){
  unmountVideoExport();
  unmountConnect();
  unmountStoryAudio();
- const p=current();if(!['home','connect','saved'].includes(state.view)&&!p)state.view='home';
- $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" data-action="home" aria-label="Witness home"><img src="./mark.svg" alt="" width="34" height="34">witness<span class="brand-dot">.</span></a><nav aria-label="Main navigation"><button class="nav-item ${state.view==='home'?'active':''}" data-action="home"><span>${icons.home}</span> My space <span class="nav-count">${state.projects.length}</span></button><button class="nav-item ${state.view==='saved'?'active':''}" data-action="saved"><span aria-hidden="true">❧</span> Saved <span class="nav-count">${savedQuotes.length}</span></button><button class="nav-item nav-connect ${state.view==='connect'?'active':''}" data-action="connect" aria-label="Connect" aria-describedby="connect-nav-tip"><span class="nav-connect-icon" aria-hidden="true">◎</span><span class="nav-connect-copy"><strong>Connect</strong><small>Connect through your stories</small></span><span class="nav-tooltip" id="connect-nav-tip" role="tooltip"><strong>Connect through your stories</strong><span>Find people with experiences like yours.</span></span></button><button class="nav-item" data-action="account"><span aria-hidden="true">◐</span> <span data-account-label>${esc(accountNavLabel(account))}</span></button><button class="nav-item" data-action="new"><span>＋</span> New conversation</button></nav><div class="sidebar-bottom"><small>Private · stored on this device</small></div></aside>
- <div class="workspace"><header class="topbar"><span class="breadcrumb">My space <span>/</span> ${state.view==='home'?'My space':state.view==='connect'?'Connect':state.view==='saved'?'Saved':esc(p?.title)}</span><div class="topbar-right"><span class="save-state" id="save-label">${storageError?'Not saved — download a copy':'Saved in this browser'}</span><button class="about-button" data-action="about"><span aria-hidden="true">ⓘ</span> About</button></div></header>
+ const p=current();if(!['home','connect','saved','book'].includes(state.view)&&!p)state.view='home';
+ $('#app').innerHTML=`<aside class="sidebar"><a class="brand" href="#" data-action="home" aria-label="Witness home"><img src="./mark.svg" alt="" width="34" height="34">witness<span class="brand-dot">.</span></a><nav aria-label="Main navigation"><button class="nav-item ${state.view==='home'?'active':''}" data-action="home"><span>${icons.home}</span> My space <span class="nav-count">${state.projects.length}</span></button><button class="nav-item ${state.view==='saved'?'active':''}" data-action="saved"><span aria-hidden="true">❧</span> Saved ${savedNavBadge()}</button><button class="nav-item ${state.view==='book'?'active':''}" data-action="book"><span aria-hidden="true">❦</span> My book <span class="nav-count">${books.length}</span></button><button class="nav-item nav-connect ${state.view==='connect'?'active':''}" data-action="connect" aria-label="Connect" aria-describedby="connect-nav-tip"><span class="nav-connect-icon" aria-hidden="true">◎</span><span class="nav-connect-copy"><strong>Connect</strong><small>Connect through your stories</small></span><span class="nav-tooltip" id="connect-nav-tip" role="tooltip"><strong>Connect through your stories</strong><span>Find people with experiences like yours.</span></span></button><button class="nav-item" data-action="account"><span aria-hidden="true">◐</span> <span data-account-label>${esc(accountNavLabel(account))}</span></button><button class="nav-item" data-action="new"><span>＋</span> New conversation</button></nav><div class="sidebar-bottom"><small>Private · stored on this device</small></div></aside>
+ <div class="workspace"><header class="topbar"><span class="breadcrumb">My space <span>/</span> ${state.view==='home'?'My space':state.view==='connect'?'Connect':state.view==='saved'?'Saved':state.view==='book'?'My book':esc(p?.title)}</span><div class="topbar-right"><span class="save-state" id="save-label">${storageError?'Not saved — download a copy':'Saved in this browser'}</span><button class="about-button" data-action="about"><span aria-hidden="true">ⓘ</span> About</button></div></header>
  <div id="storage-warning" class="storage-warning" role="alert" ${storageError?'':'hidden'}>${esc(storageError)}</div>
- <main id="main" tabindex="-1">${state.view==='home'?home():state.view==='connect'?connectMarkup():state.view==='saved'?savedView():flow(p)}</main><footer class="footer"><span>Your stories stay in this browser.</span><span>No streaks. Nothing is due.</span></footer></div>
+ <main id="main" tabindex="-1">${state.view==='home'?home():state.view==='connect'?connectMarkup(communityUI.connectMode):state.view==='saved'?savedView():state.view==='book'?bookHtml():flow(p)}</main><footer class="footer"><span>Private stories stay in this browser.</span><span>Shared copies and cloud phrases live under your account.</span></footer></div>
  <dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>`;
  sizeTextareas();
  if(state.view==='video'&&p?.video)mountVideoExport(p,{onSave:()=>save()});
  if(state.view==='story'&&p?.story)mountStoryAudio(p);
- if(state.view==='connect')mountConnect({selected:state.connectEvent,events:connectEventsFor(state.projects),onSelect:id=>{state.connectEvent=id;save();},onStory:s=>openConnectStory(s),onReview:id=>go('review',id)});
+ if(state.view==='connect')refreshConnectMount();
  if(state.view==='interview')mountVoice(p,{onNotify:toast,onSave:()=>save(),onRevisit:answerId=>{go('review');const t=document.querySelector('#edit-'+CSS.escape(answerId));if(t){t.scrollIntoView({block:'center'});t.focus({preventScroll:true});}},onApply:text=>{const input=$('#answer-input');const combined=[input.value.trim(),text].filter(Boolean).join('\n\n');if(combined.length>20000){toast('This answer is too long. Shorten it before adding the transcript.');return false;}input.value=combined;p.draft=combined;save();return true;}});
  if(state.view==='interview')mountQuestionSpeech({key:JSON.stringify([p.id,p.answers.length,p.questionIndex,nextQuestion(p)]),text:nextQuestion(p),pending:interviewFlow.projectId===p.id&&interviewFlow.phase!=='idle',canSpeak:()=>!voiceBusy()&&!document.hidden&&($('#voice-playback')?.paused!==false)});
  if(storageConflict)paintStorageWarning();
  if(loadError){const w=$('#storage-warning');w.innerHTML=esc(storageError)+' <button data-action="backup">Download saved data</button>';}
 }
 function roomScene(){
- return `<figure class="room-scene"><svg viewBox="0 0 560 400" role="img" aria-labelledby="room-art-title"><title id="room-art-title">A quiet desk at night with a lamp, a pocket cassette recorder, books and a warm window</title><defs><radialGradient id="lampGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffd9a0" stop-opacity=".85"/><stop offset="55%" stop-color="#f2b86d" stop-opacity=".28"/><stop offset="100%" stop-color="#f2b86d" stop-opacity="0"/></radialGradient><linearGradient id="nightSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#232c55"/><stop offset="100%" stop-color="#3c2f5e"/></linearGradient><linearGradient id="deskWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7a5a44"/><stop offset="100%" stop-color="#5d4433"/></linearGradient><linearGradient id="recorderBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#aecbbd"/><stop offset="100%" stop-color="#7ba794"/></linearGradient></defs><rect x="0" y="0" width="560" height="400" rx="18" fill="#1a2140"/><rect x="370" y="28" width="150" height="150" rx="10" fill="url(#nightSky)" stroke="#4a3f66" stroke-width="5"/><circle cx="470" cy="70" r="17" fill="#f4e3bb"/><circle cx="464" cy="65" r="15" fill="#2a3560" opacity=".28"/><circle cx="405" cy="60" r="1.6" fill="#f4e3bb"/><circle cx="430" cy="95" r="1.3" fill="#f4e3bb"/><circle cx="495" cy="120" r="1.6" fill="#f4e3bb"/><circle cx="450" cy="140" r="1.2" fill="#f4e3bb"/><circle cx="415" cy="130" r="1.2" fill="#f4e3bb"/><rect x="370" y="178" width="150" height="10" rx="4" fill="#4a3f66"/><ellipse cx="150" cy="150" rx="130" ry="120" fill="url(#lampGlow)"/><rect x="0" y="252" width="560" height="148" fill="url(#deskWood)"/><rect x="0" y="252" width="560" height="8" fill="#8a6a50"/><rect x="96" y="150" width="14" height="104" rx="6" fill="#3a2f4e"/><path d="M103 150 L70 118 L150 118 Z" fill="#c65b3f"/><path d="M70 118 L150 118 L138 104 L82 104 Z" fill="#d9704f"/><ellipse cx="110" cy="104" rx="34" ry="10" fill="#e8a06a" opacity=".55"/><rect x="392" y="196" width="10" height="58" fill="#3a2f4e"/><rect x="372" y="196" width="50" height="12" rx="5" fill="#3a2f4e"/><g><rect x="60" y="196" width="96" height="20" rx="3" fill="#8a4f3d"/><rect x="60" y="176" width="96" height="20" rx="3" fill="#5f6e5a"/><rect x="60" y="156" width="96" height="20" rx="3" fill="#a3764f"/><rect x="60" y="156" width="10" height="60" fill="#00000022"/></g><g><rect x="440" y="216" width="52" height="38" rx="5" fill="#e9e2d2" transform="rotate(4 466 235)"/><rect x="448" y="222" width="36" height="22" rx="3" fill="#8a93a8" transform="rotate(4 466 235)"/><circle cx="466" cy="233" r="7" fill="#3a2f4e" transform="rotate(4 466 235)"/></g><g><ellipse cx="300" cy="262" rx="26" ry="8" fill="#00000033"/><rect x="278" y="218" width="44" height="42" rx="6" fill="#b0512f"/><path d="M322 226 q10 -2 8 8 q-2 8 -12 6" fill="none" stroke="#b0512f" stroke-width="7" stroke-linecap="round"/><path d="M292 218 q2 -8 6 -12 M300 218 q3 -9 8 -13" stroke="#f4e3bb" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".8"/></g><g><rect x="150" y="238" width="260" height="118" rx="22" fill="url(#recorderBody)" stroke="#4e6b62" stroke-width="3"/><rect x="150" y="238" width="260" height="118" rx="22" fill="#ffffff" opacity=".08"/><rect x="172" y="254" width="216" height="86" rx="12" fill="#24383a" stroke="#4e6b62" stroke-width="2"/><rect x="184" y="264" width="192" height="26" rx="4" fill="#efe8d2"/><rect x="196" y="272" width="60" height="7" rx="3.5" fill="#b0512f"/><rect x="196" y="281" width="110" height="4" rx="2" fill="#9a917c"/><circle cx="228" cy="314" r="17" fill="none" stroke="#d9d4ba" stroke-width="7"/><circle cx="228" cy="314" r="4" fill="#d9d4ba"/><path d="M228 300 v28 M214 314 h28 M218 304 l20 20 M238 304 l-20 20" stroke="#9aa994" stroke-width="3"/><circle cx="332" cy="314" r="17" fill="none" stroke="#d9d4ba" stroke-width="7"/><circle cx="332" cy="314" r="4" fill="#d9d4ba"/><path d="M332 300 v28 M318 314 h28 M322 304 l20 20 M342 304 l-20 20" stroke="#9aa994" stroke-width="3"/><rect x="245" y="312" width="70" height="3" fill="#d9d4ba"/><g stroke="#4e6b62" stroke-width="2.5"><line x1="172" y1="352" x2="200" y2="352"/><line x1="172" y1="358" x2="200" y2="358"/><line x1="172" y1="364" x2="200" y2="364"/><line x1="360" y1="352" x2="388" y2="352"/><line x1="360" y1="358" x2="388" y2="358"/><line x1="360" y1="364" x2="388" y2="364"/></g><rect x="216" y="350" width="34" height="16" rx="4" fill="#2e4442"/><rect x="254" y="350" width="34" height="16" rx="4" fill="#2e4442"/><rect x="292" y="350" width="34" height="16" rx="4" fill="#a33327"/><circle cx="392" cy="250" r="5" fill="#f2b86d"/><text x="280" y="252" font-family="DM Sans,Arial,sans-serif" font-size="11" letter-spacing="2" fill="#4e6b62">WITNESS · POCKET</text></svg></figure>`;
+ return `<figure class="room-scene pencil-vignette"><img src="./assets/illustrations/telephone-desk.png" alt="A pencil drawing of a rotary telephone with a coiled cord beside a notebook and tea" loading="lazy" decoding="async"></figure>`;
 }
 function collectionCard(p,first){
  const r=resumePoint(p),rec=(p.recordings||[]).length;
@@ -253,7 +302,23 @@ function home(){
  const shelf=projects.length
   ?`<section class="space-library" aria-label="Your story collection"><div class="section-heading"><h2>Your shelf</h2><span>${projects.length} ${projects.length===1?'story':'stories'}</span></div><p class="muted collection-hint">Conversations, moments and stories to return to. On this device.</p>${projects.map((p,i)=>collectionCard(p,i===0)).join('')}</section>`
   :`<section class="space-library" aria-label="Your story collection"><div class="section-heading"><h2>Your shelf</h2><span>Empty for now</span></div><p class="muted">A recording, a few words — start wherever you like. Everything here stays on this device.</p></section>`;
- return `${today}${shelf}<section class="space-more"><p class="muted">Curious first? <button class="text-button" data-action="demo-browse">Try a fictional example →</button></p></section>`;
+ return `${pushPromptBanner()}${pendingPushBanner()}${today}${shelf}<section class="space-more"><p class="muted">Curious first? <button class="text-button" data-action="demo-browse">Try a fictional example →</button></p></section>`;
+}
+// A reminder notification brought a question. It waits for an explicit tap
+// — never recording, never posting on its own.
+function pushPromptBanner(){
+ if(!pushPromptId)return '';
+ const prompt=MEMORY_PROMPTS.find(q=>q.id===pushPromptId);
+ if(!prompt){pushPromptId=null;return '';}
+ return `<section class="space-today" aria-labelledby="push-question"><div class="room-hero"><div class="room-copy"><p class="date-line">From your reminder</p><h1 id="push-question">${esc(prompt.question)}</h1><p class="muted">Start only if you like — nothing is recorded yet.</p><div class="space-actions"><button class="button primary" data-action="push-prompt-start" data-id="${esc(prompt.id)}">Start writing →</button><button class="button outline" data-action="push-prompt-dismiss">Not now</button></div></div></div></section>`;
+}
+function startWithPushPrompt(promptId){
+ const prompt=MEMORY_PROMPTS.find(q=>q.id===promptId);
+ if(!prompt){pushPromptId=null;render();return;}
+ pushPromptId=null;
+ const p=newProject(prompt.topic);
+ setInterviewer(p,{result:{question:prompt.question},provider:'prompt',model:null});
+ state.projects.push(p);go('interview',p.id);
 }
 function weeklyParagraphRows(p,story){
  return paragraphSources(story).map(row=>{
@@ -319,7 +384,7 @@ function editorMarkup(p,s){
  const by=f.provider==='mock'?'a local preview':'Meta '+(f.model||'muse-spark-1.3');
  return `<div class="proposal" role="status"><p><strong>Suggested wording.</strong> Proposed by ${by} and checked against your answer. Your original answer is never changed.</p><blockquote>${esc(f.proposal)}</blockquote>${f.keptPhrases?.length?`<p class="muted">Kept from your wording: ${esc(f.keptPhrases.join(', '))}.</p>`:''}<div class="event-actions"><button class="button primary small" data-action="editor-accept" data-id="${s.id}">Use this wording</button><button class="text-button" data-action="editor-reject" data-id="${s.id}">Keep mine</button></div></div>`;
 }
-function story(p){if(!p.story)return review(p);const stale=p.story.passages.filter(s=>isStale(p,s)).length;return `<div class="story-top"><div><p class="eyebrow">STORY DRAFT · PRIVATE</p></div><div class="story-top-actions"><button class="button outline" data-action="download">↓ Download story</button>${p.event?.confirmed&&!eventStale(p)?'<button class="button outline" data-action="video-open">Plan a film →</button>':''}</div></div><div class="story-layout"><section class="paper" aria-label="Story draft"><div class="paper-meta"><span>${p.example?'FICTIONAL EXAMPLE':'PRIVATE'}</span><span>IN YOUR WORDS</span></div><label class="sr-only" for="story-title">Story title</label><textarea class="story-title" id="story-title" maxlength="120" rows="1">${esc(p.story.title)}</textarea><div class="paper-rule"></div>${stale?`<div class="stale-banner" role="status">${stale} ${stale===1?'source has':'sources have'} changed. Open the marked sources to review.</div>`:''}${p.story.passages.map((s,i)=>`<article class="passage ${isStale(p,s)?'stale':''}"><label class="sr-only" for="passage-${s.id}">Story passage ${i+1}</label><textarea class="passage-text" id="passage-${s.id}" data-passage="${s.id}" rows="${Math.max(3,Math.ceil(s.text.length/65))}" maxlength="20000">${esc(s.text)}</textarea>${proposalCard(p,s)}${editorMarkup(p,s)}<div class="passage-bottom"><span>${s.edited?'Edited by you':'From your answer'}</span><span class="passage-actions"><button class="text-button" data-action="passage-save" data-id="${s.id}">Save passage</button><button class="text-button" data-action="editor-suggest" data-id="${s.id}">Suggest wording</button><button class="source-button" data-action="source" data-id="${s.id}">${isStale(p,s)?'<i class="warning-dot"></i> Needs review · ':''}↗ Source ${i+1}</button></span></div></article>`).join('')}</section><aside class="story-aside"><span class="eyebrow">ABOUT THIS DRAFT</span><p>Edit any passage. Open its source to see the answer it came from.</p><div class="stat-line"><span>Words</span><strong id="word-count">${wordCount(p)}</strong></div><div class="stat-line"><span>Source answers</span><strong>${p.story.passages.length}</strong></div><button class="text-button" data-action="review">← Back to your answers</button><button class="text-button" data-action="interview">Add another memory +</button><button class="text-button" data-action="weekly-open">Draft a weekly story →</button><button class="text-button" data-action="account" data-id="${p.id}">Save to my account →</button><div class="demo-explainer"><span>HOW THIS DRAFT WORKS</span><p>Your answers are assembled without AI rewriting. Your edits and source links are saved in this browser.</p></div></aside></div>${storyAudioMarkup(p)}`;}
+function story(p){if(!p.story)return review(p);const stale=p.story.passages.filter(s=>isStale(p,s)).length;return `<div class="story-top"><div><p class="eyebrow">STORY DRAFT · PRIVATE</p></div><div class="story-top-actions"><button class="button outline" data-action="download">↓ Download story</button><button class="button outline" data-action="share-open">Share →</button>${p.event?.confirmed&&!eventStale(p)?'<button class="button outline" data-action="video-open">Plan a film →</button>':''}</div></div><div class="story-layout"><section class="paper" aria-label="Story draft"><div class="paper-meta"><span>${p.example?'FICTIONAL EXAMPLE':'PRIVATE'}</span><span>IN YOUR WORDS</span></div><label class="sr-only" for="story-title">Story title</label><textarea class="story-title" id="story-title" maxlength="120" rows="1">${esc(p.story.title)}</textarea><div class="paper-rule"></div>${stale?`<div class="stale-banner" role="status">${stale} ${stale===1?'source has':'sources have'} changed. Open the marked sources to review.</div>`:''}${p.story.passages.map((s,i)=>`<article class="passage ${isStale(p,s)?'stale':''}"><label class="sr-only" for="passage-${s.id}">Story passage ${i+1}</label><textarea class="passage-text" id="passage-${s.id}" data-passage="${s.id}" rows="${Math.max(3,Math.ceil(s.text.length/65))}" maxlength="20000">${esc(s.text)}</textarea>${proposalCard(p,s)}${editorMarkup(p,s)}<div class="passage-bottom"><span>${s.edited?'Edited by you':'From your answer'}</span><span class="passage-actions"><button class="text-button" data-action="passage-save" data-id="${s.id}">Save passage</button><button class="text-button" data-action="editor-suggest" data-id="${s.id}">Suggest wording</button><button class="source-button" data-action="source" data-id="${s.id}">${isStale(p,s)?'<i class="warning-dot"></i> Needs review · ':''}↗ Source ${i+1}</button></span></div></article>`).join('')}</section><aside class="story-aside"><span class="eyebrow">ABOUT THIS DRAFT</span><p>Edit any passage. Open its source to see the answer it came from.</p><div class="stat-line"><span>Words</span><strong id="word-count">${wordCount(p)}</strong></div><div class="stat-line"><span>Source answers</span><strong>${p.story.passages.length}</strong></div><button class="text-button" data-action="review">← Back to your answers</button><button class="text-button" data-action="interview">Add another memory +</button><button class="text-button" data-action="weekly-open">Draft a weekly story →</button><button class="text-button" data-action="account" data-id="${p.id}">Save to my account →</button><div class="demo-explainer"><span>HOW THIS DRAFT WORKS</span><p>Your answers are assembled without AI rewriting. Your edits and source links are saved in this browser.</p></div></aside></div>${storyAudioMarkup(p)}`;}
 function showDialog(html){$('#modal-content').innerHTML=html;$('#modal').showModal();}
 // Account dialog helpers. The auth SDK loads only here, on explicit Account
 // action — never on guest Home. Repaints touch the modal and the nav label
@@ -336,7 +401,18 @@ async function ensureAuthClient(){
     account.userId=uid;account.status=uid?'signed-in':'signed-out';
     if(uid&&session?.user?.email)account.email=session.user.email;
     openedCloudRow=null;pendingCloudProjectId=null;
+    // Account change or sign-out: drop community caches, the open real
+    // card, and the share session. Epochs bump inside, so pending
+    // replies resolve stale and repaint nothing. Local data is untouched.
+    stopDiscoverySim();
+    resetCommunityUI(communityUI);
+    pushView={status:'unknown',prefs:null,deviceOn:false,busy:false,error:'',notice:'',quotes:[],syncedKeys:[],pushReady:false,deviceTimeZone:pushView.deviceTimeZone};
+    pushPrepared=null;
+    pushPromptId=null;
     repaintAccountDialog();paintAccountNav();
+    if(state.view==='saved')render();
+    if(state.view==='connect'&&communityUI.connectMode==='real')fetchRealRows(true);
+    else if(state.view==='connect')refreshConnectMount();
    }
   });
  }
@@ -345,8 +421,202 @@ async function ensureAuthClient(){
 function pendingCloudProject(){
  return state.projects.find(p=>p.id===pendingCloudProjectId)||null;
 }
+async function pushAuthedClient(){
+ await ensureAuthClient();await refreshAccount(authClient,account);
+ return signedIn()?authClient:null;
+}
+function pushFail(msg){
+ pushView.busy=false;pushView.error=msg;pushView.notice='';repaintAccountDialog();
+}
+// Explicit enable gesture, split in two so Safari keeps the user gesture:
+// preparation (support → sign-in → backend config) already ran when
+// Settings opened and cached into pushPrepared tied to the user id.
+// This click prologue is FULLY SYNCHRONOUS: the permission request happens
+// here, before any await. A missing or stale bundle fails closed — the
+// button stays disabled until preparation is ready (see push-ui), and a
+// changed account never inherits another user's config.
+function pushEnableClickSync(){
+ let permission=null;
+ try{
+  permission=requestPushPermissionSync({prepared:pushPrepared,currentUserId:account.userId});
+ }catch{permission=null;}
+ if(!permission){
+  pushView.busy=false;
+  pushView.error='Reminders are not ready on this device yet. Reopen Settings and try again.';
+  pushView.notice='';
+  repaintAccountDialog();
+  return;
+ }
+ pushView.busy=true;pushView.error='';pushView.notice='';repaintAccountDialog();
+ void completePushEnable(permission);
+}
+async function completePushEnable(permission){
+ try{
+  const client=await pushAuthedClient();
+  if(!client){pushFail('Sign in first — reminders need your account.');paintAccountNav();return;}
+  const r=await finishPushEnable({client,prepared:pushPrepared,currentUserId:account.userId,permission});
+  pushView.busy=false;
+  if(r.ok){pushView.notice='Reminders are on for this device.';pushView.error='';}
+  else{pushView.error=r.error;pushView.notice='';}
+ }catch{pushView.busy=false;pushView.error='This device could not be registered. Nothing was changed.';pushView.notice='';}
+ await refreshPushView().catch(()=>{});
+ pushView.busy=false;repaintAccountDialog();
+}
+async function pushDisableDevice(){
+ pushView.busy=true;pushView.error='';pushView.notice='';repaintAccountDialog();
+ try{
+  const client=await pushAuthedClient();
+  if(!client){pushFail('Sign in first — reminders need your account.');paintAccountNav();return;}
+  const r=await disableOnThisDevice({client});
+  pushView.busy=false;
+  if(r.ok){pushView.notice='Reminders are off for this device.';pushView.error='';}
+  else{pushView.error=r.error;pushView.notice='';}
+ }catch{pushView.busy=false;pushView.error='This device could not be removed. It may still be registered.';pushView.notice='';}
+ await refreshPushView().catch(()=>{});
+ pushView.busy=false;repaintAccountDialog();
+}
+async function pushSendTest(){
+ pushView.busy=true;pushView.error='';pushView.notice='';repaintAccountDialog();
+ try{
+  const client=await pushAuthedClient();
+  if(!client){pushFail('Sign in first — reminders need your account.');paintAccountNav();return;}
+  let endpoint='';
+  try{
+   const reg=await navigator.serviceWorker.ready;
+   const sub=await reg.pushManager.getSubscription().catch(()=>null);
+   endpoint=sub?.endpoint||'';
+  }catch{endpoint='';}
+  if(!endpoint){pushFail('This device is not registered. Enable it first.');return;}
+  const r=await callPushApi(client,'test',{endpoint});
+  pushView.busy=false;
+  if(r&&r.ok===true){pushView.notice='Test sent — it arrives within a minute when this device is registered.';pushView.error='';}
+  else{pushView.error='The test notification could not be sent. Nothing was changed.';pushView.notice='';}
+ }catch(err){pushView.busy=false;pushView.error=(err&&err.message)||'The test notification could not be sent. Nothing was changed.';pushView.notice='';}
+ repaintAccountDialog();
+}
+// Sync or revoke one explicitly chosen phrase snapshot. Only the selected
+// phrase is copied to the server; nothing else leaves the browser.
+async function pushToggleQuote(quoteId){
+ pushView.busy=true;pushView.error='';pushView.notice='';repaintAccountDialog();
+ try{
+  const client=await pushAuthedClient();
+  if(!client){pushFail('Sign in first — reminders need your account.');paintAccountNav();return;}
+  if(new Set(pushView.syncedKeys).has(quoteId)){
+   const r=await callPushApi(client,'revoke-quote',{quoteKey:quoteId});
+   pushView.busy=false;
+   if(r&&r.ok===true){pushView.notice='That phrase will no longer be reminded.';pushView.error='';}
+   else{pushView.error='That phrase could not be removed. Nothing was changed.';pushView.notice='';}
+  }else{
+   // Candidates are on-device phrases plus explicitly loaded cloud
+   // phrases (sourceKind 'published', backed by real witness_quotes
+   // rows). The server re-verifies a published snapshot against the
+   // owner's row and derives attribution itself.
+   const q=pushQuoteCandidates().find(x=>x.id===quoteId);
+   if(!q)throw Error('missing');
+   const r=await callPushApi(client,'sync-quote',{snapshot:{quoteKey:q.id,text:q.text,author:q.author,sourceTitle:q.sourceTitle,sourceKind:q.sourceKind,sourceId:q.sourceId,sourceRevision:q.sourceRevision??null}});
+   pushView.busy=false;
+   if(r&&r.ok===true){pushView.notice='That phrase may now be reminded, exactly as saved.';pushView.error='';}
+   else{pushView.error='That phrase could not be synced. Nothing was changed.';pushView.notice='';}
+  }
+ }catch{pushView.busy=false;pushView.error='That phrase could not be synced. Nothing was changed.';pushView.notice='';}
+ await refreshPushView().catch(()=>{});
+ pushView.busy=false;repaintAccountDialog();
+}
+async function submitPushPrefs(form){
+ const f=Object.fromEntries(new FormData(form));
+ const editable={
+  phraseEnabled:f.phraseEnabled==='on',questionEnabled:f.questionEnabled==='on',previewText:f.previewText==='on',
+  cadence:String(f.cadence||''),localTime:String(f.localTime||''),timeZone:String(f.timeZone||'').trim(),
+  quietStart:String(f.quietStart||''),quietEnd:String(f.quietEnd||''),
+ };
+ const check=validatePushPrefs({...editable,lastSentPhrase:pushView.prefs?.lastSentPhrase??null,lastSentQuestion:pushView.prefs?.lastSentQuestion??null});
+ if(!check.ok){pushView.error='Those reminder times did not look right. Nothing was saved.';pushView.notice='';repaintAccountDialog();return;}
+ pushView.busy=true;pushView.error='';pushView.notice='';repaintAccountDialog();
+ try{
+  const client=await pushAuthedClient();
+  if(!client){pushFail('Sign in first — reminders need your account.');paintAccountNav();return;}
+  const {callPushApi}=await import('./push-client.js');
+  const r=await callPushApi(client,'prefs',{prefs:editable});
+  pushView.busy=false;
+  if(r&&r.ok===true){pushView.notice='Reminder schedule saved.';pushView.error='';}
+  else{pushView.error='Notification settings could not be saved. Nothing was changed.';pushView.notice='';}
+ }catch(err){pushView.busy=false;pushView.error=(err&&err.message)||'Notification settings could not be saved. Nothing was changed.';pushView.notice='';}
+ await refreshPushView().catch(()=>{});
+ pushView.busy=false;repaintAccountDialog();
+}
 function accountDialogBody(){
- return accountDialogHtml(account,{pendingProjectTitle:pendingCloudProject()?.story?.title||pendingCloudProject()?.title||'',openedRow:openedCloudRow});
+ return accountDialogHtml(account,{pendingProjectTitle:pendingCloudProject()?.story?.title||pendingCloudProject()?.title||'',openedRow:openedCloudRow,notificationsHtml:pushSectionHtml(pushView)});
+}
+// Optional Web Push UI state. Preferences live on the server under the
+// signed-in account; this object only mirrors them for the open dialog.
+// Nothing here is requested, prompted, or subscribed without an explicit
+// button press (see push-client.js enableOnThisDevice()).
+let pushView={status:'unknown',prefs:null,deviceOn:false,busy:false,error:'',notice:'',quotes:[],syncedKeys:[],pushReady:false,deviceTimeZone:''};
+try{pushView.deviceTimeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch{pushView.deviceTimeZone='';}
+// Cached preparation bundle from preparePushEnable(), tied to the user id
+// it was prepared for. The Enable button stays disabled until this is set.
+let pushPrepared=null;
+let pushPromptId=null;
+// A validated notification intent that arrived while recording or unsent
+// text made acting unsafe. It waits for an explicit tap — never auto-acts.
+let pendingPushIntent=null;
+function pushPermissionName(){
+ try{
+  if(!('Notification' in window))return 'default';
+  return Notification.permission;
+ }catch{return 'default';}
+}
+async function pushSupportedAsync(){
+ try{
+  return pushSupported();
+ }catch{return false;}
+}
+// Reload prefs/sync state from the backend (signed-in only) and recompute
+// the explicit status. Never prompts, never subscribes on its own.
+async function refreshPushView(){
+ const supported=await pushSupportedAsync();
+ const signed=signedIn();
+ let backend=false,prefs=null,syncedKeys=[],count=0;
+ if(signed&&authClient){
+  try{
+   const data=await callPushApi(authClient,'state');
+   if(data&&data.ok===true){backend=true;prefs=data.prefs||null;syncedKeys=Array.isArray(data.syncedKeys)?data.syncedKeys:[];count=Number(data.subscriptions)||0;}
+  }catch{backend=false;}
+ }
+ let localSub=null;
+ try{
+  if(supported){
+   const reg=await navigator.serviceWorker.ready;
+   localSub=await reg.pushManager.getSubscription().catch(()=>null);
+  }
+ }catch{localSub=null;}
+ pushView.prefs=prefs;
+ pushView.syncedKeys=syncedKeys;
+ pushView.quotes=pushQuoteCandidates();
+ pushView.deviceOn=!!localSub&&backend&&count>0;
+ pushView.status=describeEnableReadiness({supported,permission:pushPermissionName(),signedIn:signed,backendConfigured:backend,deviceEnabled:pushView.deviceOn}).status;
+ // Prepare the enable bundle now (no prompt, no subscribe) so the click
+ // can request permission synchronously. Tied to this user id; a missing
+ // or stale bundle keeps the Enable button disabled and fails the click
+ // closed.
+ pushPrepared=null;pushView.pushReady=false;
+ if(signed&&authClient&&supported&&pushPermissionName()!=='denied'){
+  try{
+   const prep=await preparePushEnable({client:authClient});
+   if(prep&&prep.ok&&prep.prepared&&account.userId===prep.prepared.userId){pushPrepared=prep.prepared;pushView.pushReady=true;}
+  }catch{pushPrepared=null;pushView.pushReady=false;}
+ }
+ if(!signed){pushView.error='';pushPrepared=null;pushView.pushReady=false;}
+}
+// Reminder candidates: on-device phrases plus the owner's explicitly
+// loaded cloud phrases (actual witness_quotes rows, sourceKind
+// 'published'). Fictional demo text is never presented as a cloud quote.
+function pushQuoteCandidates(){
+ const local=Array.isArray(savedQuotes)?savedQuotes:[];
+ const cq=communityUI.cloudQuotes;
+ const mine=signedIn()&&cq&&cq.loadedFor===account.userId&&Array.isArray(cq.rows)?cq.rows:[];
+ const cloud=mine.map(q=>({id:String(q.id||''),text:String(q.text||''),author:String(q.author||'Shared story'),sourceTitle:String(q.title||'Shared story'),sourceKind:'published',sourceId:String(q.publishedId||''),sourceRevision:Number.isInteger(q.revision)?q.revision:null})).filter(q=>q.id&&q.text&&q.sourceId&&q.sourceRevision!=null);
+ return [...local,...cloud];
 }
 function repaintAccountDialog(){
  if(!($('#modal')?.open&&document.querySelector('#modal-content [data-account-dialog]')))return;
@@ -365,6 +635,9 @@ async function openAccount(projectId){
   const pending=listCloud(authClient,account);
   showDialog(accountDialogBody());paintAccountNav();
   pending.then(()=>{if(account.userId!==uid)return;repaintAccountDialog();paintAccountNav();},()=>{if(account.userId!==uid)return;repaintAccountDialog();});
+  // Notifications state loads quietly in the background; the section
+  // repaints when it arrives. Never blocks the dialog, never prompts.
+  refreshPushView().then(()=>{if(account.userId!==uid)return;repaintAccountDialog();},()=>{});
   return;
  }
  showDialog(accountDialogBody());paintAccountNav();
@@ -374,11 +647,389 @@ function startFromChoice(choiceId){const c=starterChoice(choiceId);if(!c)return 
 // Connect reading card: Like/Unlike plus saving an exact phrase. The dialog
 // sits over the same globe; these handlers only rewrite the dialog, never
 // the globe, camera, or chosen event.
-function openConnectStory(s){openSharedStory=s;showDialog(connectStoryMarkup(s));}
+function openConnectStory(s){if(s&&s.real){openRealStory(s);return;}openSharedStory=s;showDialog(connectStoryMarkup(s));}
 function connectStoryMarkup(s){
  const liked=isLiked(likedStories,s.id);
  const paras=String(s.story||'').split('\n\n');
  return `<button class="modal-close" data-action="close" aria-label="Close story">×</button><p class="eyebrow">FICTIONAL STORY · ${esc(s.place)}</p><h2 id="modal-title">${esc(s.title)}</h2><p class="muted">${esc(s.name)} · ${esc(s.year)}</p>${paras.map((para,i)=>`<p class="shared-story-paragraph">${esc(para)}</p><button class="text-button passage-save-link" data-action="connect-save-para" data-n="${i}">Save this passage</button>`).join('')}<div class="shared-story-reason"><span>${s.matchType==='same_occasion'?'SAME OCCASION':'SIMILAR EXPERIENCE'}</span><p>${esc(s.reason)}</p></div><div class="connect-keep-row"><button class="button outline small" data-action="connect-like" data-id="${esc(s.id)}" aria-pressed="${liked}">${liked?'Unlike ♥':'Like ♡'}</button><button class="button outline small" data-action="connect-save" data-id="${esc(s.id)}">Save selected words</button></div><p class="muted">Likes and saved phrases stay on this device. No account, no totals.</p><p class="connect-save-note" role="status"></p><p class="shared-story-note">Fictional profile. Messaging and real-user discovery are not connected.</p><button class="button outline" data-action="close">Back to Earth</button>`;
+}
+function signedIn(){return account.status==='signed-in'&&!!account.userId;}
+function realNote(text){const n=document.querySelector('#modal-content .connect-save-note');if(n)n.textContent=text;else toast(text);}
+function currentPrivateEvent(){return privateEventFor(connectEventsFor(state.projects),state.connectEvent);}
+function refreshConnectMount(){
+ if(state.view!=='connect'||!document.querySelector('#connect-root'))return;
+ // Keep unsent search text across re-renders (topic toggles, likes): the
+ // live box value wins over the stored one, sliced to the 500 cap.
+ const liveQuery=document.querySelector('#connect-root [data-discovery-query]');
+ if(liveQuery&&typeof liveQuery.value==='string')communityUI.discovery.query=liveQuery.value.slice(0,500);
+ mountConnect({selected:state.connectEvent,events:connectEventsFor(state.projects),onSelect:id=>{if(id!==state.connectEvent){stopDiscoverySim();cancelDiscovery(communityUI);}state.connectEvent=id;save();refreshConnectMount();},onStory:s=>openConnectStory(s),onReview:id=>go('review',id),mode:communityUI.connectMode,real:buildRealViewState(communityUI,currentPrivateEvent(),{liveDiscovery:aiMode.liveAvailable}),onMode:handleConnectMode,onRetry:()=>fetchRealRows(true),onDiscoverySearch:handleDiscoverySearch,onDiscoveryCancel:handleDiscoveryCancel,onDiscoveryPreview:handleDiscoveryPreview});
+}
+function handleConnectMode(mode){
+ communityUI.connectMode=mode==='real'?'real':'fiction';
+ if(state.view!=='connect')return;
+ render();
+ if(communityUI.connectMode==='real')fetchRealRows(false);
+}
+async function fetchRealRows(force){
+ if(communityUI.connectMode!=='real'||state.view!=='connect')return;
+ if(communityUI.realFetched&&!force)return;
+ const token=beginRealFetch(communityUI.real);
+ refreshConnectMount();
+ let client;
+ try{client=await ensureAuthClient();}
+ catch{settleRealFetch(communityUI.real,token,{ok:false,error:'Witness could not reach the community service. You may be offline — your stories on this device are unchanged.'});if(state.view==='connect'&&communityUI.connectMode==='real')refreshConnectMount();return;}
+ try{await refreshAccount(client,account);}catch{/* public rows still load; the owner list stays unknown */}
+ let result;
+ try{result=await fetchPublished(client);}
+ catch{settleRealFetch(communityUI.real,token,{ok:false,error:'Witness could not reach the community service. You may be offline — your stories on this device are unchanged.'});if(state.view==='connect'&&communityUI.connectMode==='real')refreshConnectMount();return;}
+ if(!settleRealFetch(communityUI.real,token,result))return;
+ communityUI.realFetched=!!result.ok;
+ if(state.view==='connect'&&communityUI.connectMode==='real')refreshConnectMount();
+ // Exclude the narrator's own publications via the existing owner-only RPC
+ // (never a widened public owner_id select). Signed-out narrators have no
+ // own list, so nothing is excluded; a failed owner list keeps the matches
+ // unfiltered and says so in the guidance. Epoch, view, and mode guards
+ // drop the reply when the session moved on.
+ if(result.ok&&signedIn()&&account.userId){
+  const uid=account.userId;
+  try{
+   const mine=await listMyPublications(client,account);
+   if(token!==communityUI.real.epoch||state.view!=='connect'||communityUI.connectMode!=='real'||account.userId!==uid)return;
+   if(mine?.ok){communityUI.real.ownIds=(mine.rows||[]).map(r=>r?.id).filter(id=>typeof id==='string'&&id);communityUI.real.ownError='';}
+   else{communityUI.real.ownIds=null;communityUI.real.ownError='Your own shared copies could not be checked, so they may appear below. Nothing was changed.';}
+  }catch{
+   if(token!==communityUI.real.epoch||state.view!=='connect'||communityUI.connectMode!=='real'||account.userId!==uid)return;
+   communityUI.real.ownIds=null;communityUI.real.ownError='Your own shared copies could not be checked, so they may appear below. Nothing was changed.';
+  }
+  if(state.view==='connect'&&communityUI.connectMode==='real')refreshConnectMount();
+ }else if(result.ok){
+  communityUI.real.ownIds=null;communityUI.real.ownError='';
+ }
+ // Rows refreshed: ranked results bound to withdrawn or revised rows drop
+ // out instead of pointing at versions that no longer exist.
+ if(result.ok){
+  const {dropped}=rebaseDiscoveryResults(communityUI,communityUI.real.rows);
+  if(dropped>0)toast(`${dropped} ranked ${dropped===1?'story was':'stories were'} withdrawn or updated since the search — ${dropped===1?'it was':'they were'} removed. Nothing else changed.`);
+ }
+}
+// Read the discovery filter inputs from the live panel. Filters compose
+// locally and apply without any model call; validation errors surface on
+// Search, never as silent defaults.
+function readDiscoveryFiltersFromDOM(){
+ const root=document.querySelector('#connect-root');
+ const val=(name)=>root?.querySelector(`[data-discovery-filter="${name}"]`);
+ const text=(name)=>{const el=val(name);return el?String(el.value??''):'';};
+ const unknown=val('includeUnknownDates');
+ return {
+  fromYear:text('fromYear'),
+  toYear:text('toYear'),
+  city:text('city'),
+  includeUnknownDates:unknown?!!unknown.checked:true,
+ };
+}
+// One explicit Search click, one bounded model call. Filters narrow the
+// public rows FIRST on this device; an empty candidate list means NO model
+// call. The binding snapshots the query, filters, selected event, account,
+// and candidate revisions; late or superseded replies are discarded.
+async function handleDiscoverySearch(){
+ stopDiscoverySim();
+ if(communityUI.connectMode!=='real'||state.view!=='connect')return;
+ const root=document.querySelector('#connect-root');if(!root)return;
+ const d=communityUI.discovery;
+ const patch=readDiscoveryFiltersFromDOM();
+ const checked=setDiscoveryFilters(d,{fromYear:patch.fromYear,toYear:patch.toYear,city:patch.city,includeUnknownDates:patch.includeUnknownDates});
+ if(checked?.error){settleDiscoverySearch(d,d.epoch,{ok:false,error:checked.error});refreshConnectMount();return;}
+ const queryText=String(root.querySelector('[data-discovery-query]')?.value??discoveryQueryFor(communityUI,currentPrivateEvent()));
+ const eventId=currentPrivateEvent()?.id||'';
+ const uid=account.userId||'';
+ const ownIds=new Set(Array.isArray(communityUI.real.ownIds)?communityUI.real.ownIds:[]);
+ const built=buildDiscoveryCandidates(communityUI.real.rows,{filters:d.filters,excludeIds:ownIds});
+ const began=beginDiscoverySearch(d,{query:queryText,candidates:built.candidates,eventId,uid});
+ if(began?.error){settleDiscoverySearch(d,d.epoch,{ok:false,error:began.error});refreshConnectMount();return;}
+ d.truncated=built.truncated;d.truncationNote=built.truncationNote;
+ try{communityUI.discoveryAbort?.abort();}catch{/* superseded */}
+ const controller=new AbortController();communityUI.discoveryAbort=controller;
+ const token=began.token;
+ refreshConnectMount();
+ try{
+  const fetched=await fetchDiscoveryResults(began.request,{signal:controller.signal});
+  if(communityUI.discoveryAbort!==controller)return;
+  if(!isDiscoveryBindingFresh(d,token,{eventId:currentPrivateEvent()?.id||'',uid:account.userId||''}))return;
+  let mapped,dropNote='';
+  try{
+   const fresh=mapFreshDiscoveryResults(fetched.results,began.request,communityUI.real.rows,{provider:fetched.provider,model:fetched.model});
+   mapped=fresh.mapped;
+   if(fresh.dropped>0)dropNote=` ${fresh.dropped} ranked ${fresh.dropped===1?'story was':'stories were'} withdrawn or updated during the search and ${fresh.dropped===1?'was':'were'} left out.`;
+  }catch(mapErr){
+   if(!isDiscoveryBindingFresh(d,token,{eventId:currentPrivateEvent()?.id||'',uid:account.userId||''}))return;
+   settleDiscoverySearch(d,token,{ok:false,error:mapErr.message});refreshConnectMount();return;
+  }
+  if(!isDiscoveryBindingFresh(d,token,{eventId:currentPrivateEvent()?.id||'',uid:account.userId||''}))return;
+  if(!mapped.length&&dropNote){settleDiscoverySearch(d,token,{ok:false,error:'The ranked stories were withdrawn or updated during the search. Search again.'});refreshConnectMount();return;}
+  settleDiscoverySearch(d,token,{ok:true,results:mapped,provider:fetched.provider,model:fetched.model,truncated:built.truncated,truncationNote:(built.truncationNote+dropNote).trim()});
+ }catch(err){
+  if(communityUI.discoveryAbort!==controller)return;
+  if(!isDiscoveryBindingFresh(d,token,{eventId:currentPrivateEvent()?.id||'',uid:account.userId||''}))return;
+  settleDiscoverySearch(d,token,{ok:false,error:err?.message||'The search could not be completed. Nothing was changed.'});
+ }finally{
+  if(communityUI.discoveryAbort===controller)communityUI.discoveryAbort=null;
+  if(state.view==='connect'&&communityUI.connectMode==='real')refreshConnectMount();
+ }
+}
+function handleDiscoveryCancel(){
+ stopDiscoverySim();
+ cancelDiscovery(communityUI);
+ if(state.view==='connect'&&communityUI.connectMode==='real')refreshConnectMount();
+}
+// Labelled animation preview for mock mode: binds the same local
+// candidates as a real search and cycles them through the overlay for 12
+// seconds. It performs NO network request — provably no model call and no
+// paid usage — and paints no results or provider attribution. Completion
+// always leaves clean state; superseding (cancel, event/filter/account
+// change, real search, navigation away) ends it silently like any late,
+// epoch-guarded reply.
+const DISCOVERY_SIM_MS=12000;
+let discoverySimTimer=0;
+function stopDiscoverySim(){if(discoverySimTimer){clearTimeout(discoverySimTimer);discoverySimTimer=0;}}
+function handleDiscoveryPreview(){
+ if(communityUI.connectMode!=='real'||state.view!=='connect')return;
+ const root=document.querySelector('#connect-root');if(!root)return;
+ stopDiscoverySim();
+ const d=communityUI.discovery;
+ const patch=readDiscoveryFiltersFromDOM();
+ const checked=setDiscoveryFilters(d,{fromYear:patch.fromYear,toYear:patch.toYear,city:patch.city,includeUnknownDates:patch.includeUnknownDates});
+ if(checked?.error){settleDiscoverySearch(d,d.epoch,{ok:false,error:checked.error});refreshConnectMount();return;}
+ const queryText=String(root.querySelector('[data-discovery-query]')?.value??discoveryQueryFor(communityUI,currentPrivateEvent()));
+ const eventId=currentPrivateEvent()?.id||'';
+ const uid=account.userId||'';
+ const ownIds=new Set(Array.isArray(communityUI.real.ownIds)?communityUI.real.ownIds:[]);
+ const built=buildDiscoveryCandidates(communityUI.real.rows,{filters:d.filters,excludeIds:ownIds});
+ const began=beginDiscoverySearch(d,{query:queryText,candidates:built.candidates,eventId,uid});
+ if(began?.error){settleDiscoverySearch(d,d.epoch,{ok:false,error:began.error});refreshConnectMount();return;}
+ d.truncated=built.truncated;d.truncationNote=built.truncationNote;
+ d.simulated=true;
+ const token=began.token;
+ refreshConnectMount();
+ discoverySimTimer=setTimeout(()=>{
+  discoverySimTimer=0;
+  const fresh=token===d.epoch&&d.simulated&&state.view==='connect'&&communityUI.connectMode==='real'&&isDiscoveryBindingFresh(d,token,{eventId:currentPrivateEvent()?.id||'',uid:account.userId||''});
+  cancelDiscovery(communityUI);
+  if(!fresh)return;
+  refreshConnectMount();
+  toast('Simulated preview finished — no search was sent.');
+ },DISCOVERY_SIM_MS);
+ if(discoverySimTimer&&typeof discoverySimTimer.unref==='function')discoverySimTimer.unref();
+}
+function openRealStory(match){
+ communityUI.cardSeq+=1;
+ communityUI.openRealCard={publishedId:match.publishedId,revision:match.revision,match,token:communityUI.cardSeq};
+ const html=match?.semantic?discoveryStoryDialogHtml(match,{liked:isRealLiked(communityUI,match.publishedId),signedIn:signedIn()}):realStoryDialogHtml(match,{liked:isRealLiked(communityUI,match.publishedId),signedIn:signedIn()});
+ showDialog(html);
+ document.querySelectorAll('#modal-content .shared-story-paragraph').forEach((el,i)=>{const btn=document.createElement('button');btn.className='text-button passage-save-link';btn.dataset.action='real-save-para';btn.dataset.n=String(i);btn.textContent='Save whole passage';el.after(btn);});
+ void refreshRealLikes(match.publishedId,communityUI.cardSeq);
+}
+async function refreshRealLikes(publishedId,token){
+ if(!signedIn())return;
+ try{
+  await ensureAuthClient();await refreshAccount(authClient,account);
+  if(!account.userId||communityUI.openRealCard?.token!==token||communityUI.realLikesFor===account.userId)return;
+  const uid=account.userId;
+  const r=await loadMyLikes(authClient,account);
+  if(communityUI.openRealCard?.token!==token||account.userId!==uid)return;
+  if(!r.ok)return;
+  communityUI.real.myLikes=r.liked||[];communityUI.realLikesFor=uid;
+  const btn=document.querySelector('#modal-content [data-action="real-like"]');
+  if(btn&&btn.dataset.id===publishedId){const liked=isRealLiked(communityUI,publishedId);btn.setAttribute('aria-pressed',String(liked));btn.textContent=liked?'Unlike ♥':'Like ♡';}
+ }catch{/* likes stay local-only on failure; the card says so honestly */}
+}
+async function fetchFreshPublishedRow(client,publishedId){
+ try{
+  const {data,error}=await client.from('published_stories').select(PUBLIC_COLUMNS.join(',')).eq('id',publishedId).maybeSingle();
+  if(error)return{ok:false,error:communityError(error)};
+  if(!data||data.id!==publishedId)return{ok:false,error:'That story is no longer shared. Nothing was saved.'};
+  return{ok:true,row:data};
+ }catch(err){return{ok:false,error:communityError(err)};}
+}
+async function saveRealQuote(card,text){
+ if(!signedIn()){realNote('Sign in to keep cloud phrases. Your on-device shelf still works.');return;}
+ const local=quoteFromSelection(text,card.match);
+ if(local.error){realNote(local.error);return;}
+ realNote('Keeping these exact words…');
+ const token=card.token;
+ try{
+  await ensureAuthClient();await refreshAccount(authClient,account);
+  if(communityUI.openRealCard?.token!==token||!account.userId){realNote('The account changed. Nothing was kept.');return;}
+  const uid=account.userId;
+  const fresh=await fetchFreshPublishedRow(authClient,card.publishedId);
+  if(communityUI.openRealCard?.token!==token||account.userId!==uid)return;
+  if(!fresh.ok){realNote(fresh.error);return;}
+  const r=await saveCloudQuote(authClient,account,fresh.row,text,card.match.revision);
+  if(communityUI.openRealCard?.token!==token||account.userId!==uid)return;
+  if(!r.ok){realNote(r.error);return;}
+  if(communityUI.cloudQuotes.loadedFor===uid)void refreshCloudQuotes(false);
+  realNote('Kept under your account with the pen name attached. Find it under Saved.');
+ }catch{realNote('That phrase could not be kept. Nothing was changed.');}
+}
+function paintShareDialog(force){
+ const s=communityUI.share;if(!s)return;
+ if(!force&&!$('#modal')?.open)return;
+ const project=state.projects.find(p=>p.id===s.projectId)||null;
+ showDialog(shareDialogHtml({project,draft:s.draft,signedIn:signedIn(),resolving:!!s.resolving,myRows:s.myRows,myError:s.myError,setupNote:s.setupNote}));
+}
+// Explicit Share: the stored session is resolved FIRST (ensureAuthClient +
+// refreshAccount), and only then is the sign-in gate evaluated — a signed-in
+// narrator who just reloaded never sees a stale gate. While the profile and
+// publication list load, the dialog shows a loading state; the async prefill
+// only fills an empty pen name and re-applies anything typed meanwhile, so
+// it never clears in-progress input. A newer share session, a closed modal,
+// or an account change invalidates the pending prefill (token + identity).
+async function openShare(projectId,updateId){
+ const project=state.projects.find(p=>p.id===projectId)||current()||null;
+ communityUI.share={projectId:project?.id||null,draft:createShareDraft(project||{},{penName:''}),myRows:[],myError:'',setupNote:'',resolving:true,token:(communityUI.share?.token||0)+1};
+ const s=communityUI.share,token=s.token;
+ paintShareDialog(true);
+ try{
+  await ensureAuthClient();await refreshAccount(authClient,account);
+  if(s.token!==token||communityUI.share!==s)return;
+  s.resolving=false;
+  if(!signedIn()||!account.userId){paintShareDialog(true);return;}
+  const uid=account.userId;
+  const [prof,mine]=await Promise.all([loadProfile(authClient,account),listMyPublications(authClient,account)]);
+  if(s.token!==token||communityUI.share!==s||account.userId!==uid)return;
+  if(prof?.ok&&prof.displayName&&!s.draft.penName)s.draft.penName=prof.displayName;
+  if(mine?.ok)s.myRows=mine.rows||[];
+  else s.myError=mine?.error||'';
+  if(updateId){const row=s.myRows.find(r=>r.id===updateId);if(row)s.draft=draftFromRow(project,row,s.draft.penName);}
+  if(!$('#modal')?.open)return;
+  const liveForm=document.querySelector('#modal-content #share-form');
+  if(liveForm){
+   try{
+    const live=readShareForm(liveForm);
+    if(live){
+     if(typeof live.penName==='string'&&live.penName)s.draft.penName=live.penName;
+     if(typeof live.title==='string'&&live.title)s.draft.title=live.title;
+     if(Array.isArray(live.passageIds)&&live.passageIds.length)s.draft.passageIds=live.passageIds;
+     if(typeof live.eventId==='string'&&live.eventId)s.draft.eventId=live.eventId;
+     if(typeof live.cityName==='string'&&live.cityName)s.draft.cityName=live.cityName;
+     if(Array.isArray(live.topics)&&live.topics.length)s.draft.topics=live.topics;
+     if(typeof live.occasionId==='string'&&live.occasionId)s.draft.occasionId=live.occasionId;
+     if(typeof live.originalDateText==='string')s.draft.originalDateText=live.originalDateText;
+     if(typeof live.eventYear==='string')s.draft.eventYear=live.eventYear;
+     if(typeof live.dateApprox==='string'&&live.dateApprox)s.draft.dateApprox=live.dateApprox;
+    }
+   }catch{/* typed input stays as drafted; prefill never clears it */}
+  }
+  if(!document.querySelector('#modal-content #share-form')&&!document.querySelector('#modal-content #share-publish-form'))return;
+  paintShareDialog();
+ }catch{
+  if(s.token!==token||communityUI.share!==s)return;
+  s.resolving=false;
+  s.myError='Witness could not reach the community service. Your story on this device is unchanged.';
+  paintShareDialog();
+ }
+}
+function submitShareForm(form){
+ const s=communityUI.share;if(!s)return;
+ const project=state.projects.find(p=>p.id===s.projectId)||null;
+ const inputs=readShareForm(form);
+ Object.assign(s.draft,{penName:inputs.penName,title:inputs.title,passageIds:inputs.passageIds,eventId:inputs.eventId,cityName:inputs.cityName,topics:inputs.topics,occasionId:inputs.occasionId,originalDateText:inputs.originalDateText,eventYear:inputs.eventYear,dateApprox:inputs.dateApprox,error:''});
+ const r=buildSharePreview(project,inputs);
+ if(r?.error){s.draft.phase='form';s.draft.error=r.error;s.draft.preview=null;s.draft.binding=null;}
+ else{s.draft.phase='preview';s.draft.preview=r.preview;s.draft.binding=capturePreviewBinding(r.preview,inputs);s.draft.error='';}
+ paintShareDialog();
+}
+async function submitSharePublish(){
+ const s=communityUI.share;if(!s?.draft?.binding)return;
+ const project=state.projects.find(p=>p.id===s.projectId)||null;
+ const check=checkPreviewBinding(project,s.draft.binding,buildSharePreview);
+ if(!check.ok){s.draft.phase='form';s.draft.error=check.error;s.draft.preview=null;s.draft.binding=null;paintShareDialog();return;}
+ if(!checkStorageVersion()){s.draft.phase='form';s.draft.error='Witness changed in another tab. Download any draft here before sharing.';s.draft.preview=null;s.draft.binding=null;paintShareDialog();return;}
+ const wasUpdate=!!s.draft.publishedId;
+ s.draft.busy=true;paintShareDialog();
+ const token=s.token;
+ try{
+  await ensureAuthClient();await refreshAccount(authClient,account);
+  if(s.token!==token||communityUI.share!==s||!account.userId){s.draft.busy=false;s.draft.error='The account changed. Nothing was shared.';paintShareDialog();return;}
+  const uid=account.userId;
+  const preview={...check.preview,publishedId:s.draft.publishedId||null};
+  // Date metadata travels only through the v2 RPC. A missing v2 function
+  // (migration not applied) fails closed: the narrator sees setup guidance
+  // and no copy is stored — never a silent publish without their wording.
+  const r=await publishCopyV2(authClient,account,preview,s.draft.expectedRevision||0);
+  if(s.token!==token||communityUI.share!==s)return;
+  s.draft.busy=false;
+  if(!r.ok){s.draft.phase='form';s.draft.error=r.error;paintShareDialog();return;}
+  s.draft.publishedId=r.publishedId||s.draft.publishedId;
+  s.draft.expectedRevision=r.revision;
+  s.draft.phase='form';s.draft.preview=null;s.draft.binding=null;s.draft.error='';
+  try{await saveProfile(authClient,account,s.draft.penName);}catch{/* pen-name memory is best effort */}
+  const mine=await listMyPublications(authClient,account);
+  if(s.token!==token||communityUI.share!==s||account.userId!==uid)return;
+  if(mine?.ok){s.myRows=mine.rows||[];s.myError='';}
+  else s.myError=mine?.error||'';
+  paintShareDialog();
+  toast(wasUpdate?'Shared copy updated.':'Shared copy published under your pen name.');
+ }catch{
+  if(s.token!==token||communityUI.share!==s)return;
+  s.draft.busy=false;s.draft.error='That copy could not be published. Nothing was changed.';paintShareDialog();
+ }
+}
+async function confirmShareUnpublish(publishedId){
+ const s=communityUI.share;if(!s)return;
+ try{
+  await ensureAuthClient();await refreshAccount(authClient,account);
+  if(!account.userId){toast('Sign in to manage your shared copies.');return;}
+  const token=s.token,uid=account.userId;
+  const r=await unpublishCopy(authClient,account,publishedId);
+  if(s.token!==token||communityUI.share!==s||account.userId!==uid)return;
+  if(!r.ok){s.myError=r.error;paintShareDialog(true);return;}
+  withdrawPublicationCache(communityUI,publishedId);
+  const mine=await listMyPublications(authClient,account);
+  if(s.token!==token||communityUI.share!==s||account.userId!==uid)return;
+  if(mine?.ok){s.myRows=mine.rows||[];s.myError='';}else s.myError=mine?.error||'';
+  if(s.draft.publishedId===publishedId){s.draft.publishedId=null;s.draft.expectedRevision=0;}
+  paintShareDialog(true);
+  toast('Shared copy withdrawn. Your story on this device is unchanged.');
+ }catch{
+  if(communityUI.share!==s)return;
+  s.myError='That copy could not be withdrawn. Nothing was changed.';paintShareDialog(true);
+ }
+}
+function cloudQuotesSection(){
+ const cq=communityUI.cloudQuotes;
+ const mine=signedIn()&&cq.loadedFor===account.userId;
+ let body='';
+ if(!signedIn())body='<p class="muted">Sign in to see phrases you kept from shared stories on other devices. Your on-device shelf above is unchanged.</p><div class="event-actions"><button class="button outline small" data-action="account">Sign in →</button></div>';
+ else if(cq.loading)body='<p class="muted" role="status">Loading cloud phrases…</p>';
+ else if(!mine)body='<p class="muted">Your cloud phrases live under your account, separate from this device.</p><div class="event-actions"><button class="button outline small" data-action="cloud-quotes-refresh">Load cloud phrases</button></div>';
+ else if(cq.error)body=`<div class="stale-banner" role="alert">${esc(cq.error)}</div><div class="event-actions"><button class="button outline small" data-action="cloud-quotes-refresh">Try again</button></div>`;
+ else if(!cq.rows.length)body='<p class="muted">No cloud phrases yet. Open a shared story in Connect and save its exact words.</p><div class="event-actions"><button class="button outline small" data-action="cloud-quotes-refresh">Refresh</button></div>';
+ else body=`<div class="saved-list">${cq.rows.map(q=>`<article class="memory-card"><div><blockquote class="saved-text">“${esc(q.text)}”</blockquote><p class="muted">${esc(q.author)} · ${esc(q.title)} · shared copy${q.revision?` · revision ${esc(q.revision)}`:''}</p></div></article>`).join('')}</div><div class="event-actions"><button class="button outline small" data-action="cloud-quotes-refresh">Refresh</button></div>`;
+ const count=mine&&!cq.loading&&!cq.error?cq.rows.length:'';
+ return `<section aria-label="Cloud phrases"><div class="section-heading"><h2>Cloud phrases</h2><span>${count}</span></div>${body}</section>`;
+}
+async function refreshCloudQuotes(fromView){
+ if(!signedIn()){if(fromView&&state.view==='saved')render();return;}
+ const cq=communityUI.cloudQuotes;
+ if(cq.loading)return;
+ // Refresh account phrases on each deliberate visit to Saved.
+ const token=++cq.epoch;
+ cq.loading=true;cq.error='';
+ if(state.view==='saved')render();
+ try{
+  await ensureAuthClient();await refreshAccount(authClient,account);
+  if(cq.epoch!==token||!account.userId||state.view!=='saved'){cq.loading=false;return;}
+  const uid=account.userId;
+  const r=await loadMyQuotes(authClient,account);
+  if(cq.epoch!==token||account.userId!==uid||state.view!=='saved')return;
+  cq.loading=false;
+  if(!r.ok){cq.error=r.error;cq.loadedFor=uid;}
+  else{cq.rows=shapeCloudQuotes(r.quotes);cq.error='';cq.loadedFor=uid;}
+  render();
+ }catch{
+  cq.loading=false;
+  if(cq.epoch===token&&state.view==='saved'){cq.error='Witness could not reach the community service. You may be offline — your stories on this device are unchanged.';render();}
+ }
 }
 function connectNote(text){const n=document.querySelector('#modal-content .connect-save-note');if(n)n.textContent=text;else toast(text);}
 function storyParagraphTexts(){return Array.from(document.querySelectorAll('#modal-content .shared-story-paragraph')).map(el=>el.textContent);}
@@ -392,10 +1043,11 @@ function selectionInsideParagraphs(){
  if(anchor!==focus)return {text:'',error:'Keep your selection inside one passage.'};
  return {text:cleanSelectionText(sel.toString()),error:''};
 }
+function savedNavBadge(){return '';}
 function savedView(){
  const quotes=[...savedQuotes].sort((a,b)=>b.createdAt-a.createdAt);
  const liked=likedStories.map(id=>SHARED_STORIES.find(s=>s.id===id)).filter(Boolean);
- return `<div class="page-heading"><p class="eyebrow">SAVED</p><h1>Lines worth <em>keeping.</em></h1><p>Phrases you saved, with who wrote them and where they came from. Everything stays in this browser.</p></div>${savedNotice?`<div class="stale-banner" role="alert">${esc(savedNotice)}</div>`:''}<section aria-label="Saved phrases">${quotes.length?`<div class="saved-list">${quotes.map(q=>`<article class="memory-card"><div><blockquote class="saved-text">“${esc(q.text)}”</blockquote><p class="muted">${esc(q.author)} · ${esc(q.sourceTitle)} · ${q.sourceKind==='own'?'YOUR STORY':'FICTIONAL STORY'}</p></div><div class="memory-card-actions"><button class="text-button" data-action="saved-remove" data-id="${esc(q.id)}">Remove</button></div></article>`).join('')}</div>`:'<p class="muted">Nothing saved yet. Open a story in Connect, select a few exact words, and save them here — or save a passage from one of your own stories.</p>'}</section><section aria-label="Liked stories"><div class="section-heading"><h2>Liked on this device</h2><span>${liked.length}</span></div>${liked.length?`<div class="saved-list">${liked.map(s=>`<article class="memory-card"><div><h3>${esc(s.title)}</h3><p class="muted">${esc(s.name)} · ${esc(s.place)} · fictional</p></div><div class="memory-card-actions"><button class="text-button" data-action="saved-unlike" data-id="${esc(s.id)}">Unlike</button></div></article>`).join('')}</div>`:'<p class="muted">No liked stories yet. Likes stay on this device and are never counted anywhere else.</p>'}</section>`;
+ return `<div class="page-heading"><p class="eyebrow">SAVED</p><h1>Lines worth <em>keeping.</em></h1><p>Phrases you kept from your own stories and from stories shared with you.</p></div>${pushSavedEntryHtml(pushView.status)}${savedNotice?`<div class="stale-banner" role="alert">${esc(savedNotice)}</div>`:''}<section aria-label="Saved phrases">${quotes.length?`<div class="saved-list">${quotes.map(q=>`<article class="memory-card"><div><blockquote class="saved-text">“${esc(q.text)}”</blockquote><p class="muted">${esc(q.author)} · ${esc(q.sourceTitle)} · ${q.sourceKind==='own'?'YOUR STORY':'FICTIONAL STORY'}</p></div><div class="memory-card-actions"><button class="text-button" data-action="saved-remove" data-id="${esc(q.id)}">Remove</button></div></article>`).join('')}</div>`:'<p class="muted">Nothing saved yet. Open a story in Connect, select a few exact words, and save them here — or save a passage from one of your own stories.</p>'}</section><section aria-label="Liked stories"><div class="section-heading"><h2>Liked on this device</h2><span>${liked.length}</span></div>${liked.length?`<div class="saved-list">${liked.map(s=>`<article class="memory-card"><div><h3>${esc(s.title)}</h3><p class="muted">${esc(s.name)} · ${esc(s.place)} · fictional</p></div><div class="memory-card-actions"><button class="text-button" data-action="saved-unlike" data-id="${esc(s.id)}">Unlike</button></div></article>`).join('')}</div>`:'<p class="muted">No on-device likes yet. Likes on published stories are kept under your account.</p>'}</section>${cloudQuotesSection()}`;
 }
 function newDialog(){showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">Start a <em>conversation.</em></h2><p>Choose a starting point. You can change direction any time.</p><div class="modal-topics">${TOPICS.map(t=>`<button data-action="topic" data-id="${t.id}"><div><strong>${t.name}</strong><small>${t.hint}</small></div><span aria-hidden="true">↗</span></button>`).join('')}</div>`);}
 function sourceDialog(id){const p=current(),s=p.story.passages.find(s=>s.id===id),a=p.answers.find(a=>a.id===s.sourceId);showDialog(`<button class="modal-close" data-action="close" aria-label="Close source">×</button><h2 id="modal-title">Source <em>answer.</em></h2><p class="source-question">${esc(s.question)}</p><span class="tag">ANSWER · REVISION ${s.sourceRevision}</span><blockquote>${esc(s.sourceText)}</blockquote>${isStale(p,s)?`<div class="source-change"><span class="tag">UPDATED ANSWER · REVISION ${a.revision}</span><blockquote>${esc(a.text)}</blockquote><p>Your story still refers to the earlier answer. Replacing this passage will also replace any edits you made to it.</p><button class="button primary" data-action="refresh" data-id="${s.id}">Replace with updated answer ↗</button></div>`:`<p class="muted">This is the saved answer version used for this passage. You can edit your story without changing the original answer.</p>`}<button class="text-button" data-action="review">Edit your answers →</button>`);}
@@ -405,8 +1057,20 @@ function startRecordingNow(){const entry=homeQuestion(state.homeQuestionOffset||
 function download(name,text,type='text/markdown;charset=utf-8'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 document.addEventListener('click',async e=>{
  const b=e.target.closest('[data-action]');if(!b||b.disabled)return;e.preventDefault();const action=b.dataset.action,id=b.dataset.id,p=current();if(voiceBusy()){if(action==='cloud-save'||action==='cloud-import'){account.notice='';account.error='Stop the recording or wait for transcription before saving or importing.';repaintAccountDialog();return;}toast('Stop the recording or wait for transcription before leaving.');return;}
- try {if(!checkStorageVersion()&&!['backup-current','backup','reload-latest','download','close','source','weekly-source','weekly-read','connect-like','connect-save','connect-save-para','passage-save','saved-remove','saved-unlike','account','account-google','account-signout','cloud-refresh','cloud-open','cloud-save','cloud-import'].includes(action)){toast('Another tab has newer changes. Download your draft here or reload the saved version.');return;}if(['connect-save','connect-save-para','passage-save','saved-remove'].includes(action)){const latest=loadCollection(localStorage,SAVED_KEY);if(latest.error)throw Error(latest.error);savedQuotes=latest.list;}if(['connect-like','saved-unlike'].includes(action)){const latest=loadCollection(localStorage,LIKES_KEY);if(latest.error)throw Error(latest.error);likedStories=latest.list;}switch(action){
- case'home':go('home');break;case'connect':go('connect');break;case'saved':go('saved');break;case'new':newDialog();break;case'close':$('#modal').close();break;
+ try {if(!checkStorageVersion()&&!['backup-current','backup','reload-latest','download','close','source','weekly-source','weekly-read','connect-like','connect-save','connect-save-para','passage-save','saved-remove','saved-unlike','account','account-google','account-signout','cloud-refresh','cloud-open','cloud-save','cloud-import','push-enable','push-disable','push-test','push-quote','push-prompt-start','push-prompt-dismiss','push-pending-open','push-pending-dismiss'].includes(action)){toast('Another tab has newer changes. Download your draft here or reload the saved version.');return;}if(['connect-save','connect-save-para','passage-save','saved-remove'].includes(action)){const latest=loadCollection(localStorage,SAVED_KEY);if(latest.error)throw Error(latest.error);savedQuotes=latest.list;}if(['connect-like','saved-unlike'].includes(action)){const latest=loadCollection(localStorage,LIKES_KEY);if(latest.error)throw Error(latest.error);likedStories=latest.list;}switch(action){
+ case'home':go('home');break;case'connect':go('connect');break;case'saved':go('saved');void refreshCloudQuotes(true);break;case'book':go('book');break;case'new':newDialog();break;case'close':$('#modal').close();break;
+ case'book-open':activeBookId=id;bookNotice='';render();break;
+ case'book-up':mutateBook(book=>moveChapter(book,id,-1));break;
+ case'book-down':mutateBook(book=>moveChapter(book,id,1));break;
+ case'book-exclude':mutateBook(book=>excludeChapter(book,id));break;
+ case'book-restore':mutateBook(book=>includeChapter(book,id));break;
+ case'book-refresh':mutateBook(book=>refreshChapter(book,id,state.projects));break;
+ case'book-remove':mutateBook(book=>removeChapter(book,id));break;
+ case'book-source':{const target=state.projects.find(x=>x.id===id);if(!target){bookNotice='Its story is gone from this browser. The gathered wording is kept.';render();break;}go('story',id);break;}
+ case'book-export':{const book=activeBook();if(!book){bookNotice='Start a book first.';render();break;}const r=tryExportBook(book,state.projects);if(r.error){bookNotice=r.error;render();break;}download(bookFileName(book),r.markdown);toast('Your book has been downloaded.');break;}
+ case'book-delete':{const book=activeBook();if(!book){bookNotice='Start a book first.';render();break;}showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">Delete this book?</h2><p>“${esc(book.title||'Untitled book')}” and its gathered chapters will be removed from this browser. Your stories stay exactly as they are.</p><div class="dialog-actions"><button class="button outline" data-action="close">Keep it</button><button class="button primary" data-action="book-confirm-delete" data-id="${book.id}">Delete book</button></div>`);break;}
+ case'book-confirm-delete':{const gone=books.find(b=>b.id===id);$('#modal').close();if(commitBooks(books.filter(b=>b.id!==id),gone?'Book deleted. Your stories are unchanged.':''))toast('Book deleted.');break;}
+ case'book-reload':{const r=loadBooks(localStorage);if(r.corruptRaw){bookCorrupt=true;bookStorageError=r.error;bookNotice='';}else{bookCorrupt=false;books=r.books;bookRaw=r.raw;bookStorageError=r.error||'';if(!books.some(b=>b.id===activeBookId))activeBookId=books[0]?.id||null;bookNotice='Books reloaded from this browser.';}render();break;}
  case'account':await openAccount(id||null);break;
  case'account-google':{try{await ensureAuthClient();await startGoogleSignIn(authClient,account,location.origin+location.pathname);}catch{account.error='Witness could not reach the sign-in service. Your stories on this device are unchanged.';}repaintAccountDialog();paintAccountNav();break;}
  case'account-signout':{try{await ensureAuthClient();await signOutAccount(authClient,account);}catch{account.error='Witness could not reach the sign-in service. Your stories on this device are unchanged.';}openedCloudRow=null;pendingCloudProjectId=null;repaintAccountDialog();paintAccountNav();break;}
@@ -422,13 +1086,23 @@ document.addEventListener('click',async e=>{
  case'passage-save':{const s=p?.story?.passages.find(x=>x.id===id);if(!p||!s)break;const r=addQuote(savedQuotes,{text:s.text,author:'You',sourceTitle:p.story.title||p.title,sourceKind:'own',sourceId:s.id,sourceRevision:s.sourceRevision,projectId:p.id});savedQuotes=r.list;if(r.error){toast(r.error);break;}persistSaved();toast(r.duplicate?'Already on your shelf.':'Passage saved with its source.');break;}
  case'saved-remove':savedQuotes=removeQuote(savedQuotes,id);persistSaved();render();break;
  case'saved-unlike':{const r=toggleLike(likedStories,id);likedStories=r.likes;persistLikes();render();break;}
- case'topic':start(id);break;
+ case'share-open':await openShare(id||state.active||null);break;
+case'share-back':{const s=communityUI.share;if(s){s.draft.phase='form';s.draft.preview=null;s.draft.binding=null;paintShareDialog();}break;}
+case'share-reopen':paintShareDialog(true);break;
+case'share-update':{const s=communityUI.share;if(!s)break;const project=state.projects.find(p=>p.id===s.projectId)||current();const row=s.myRows.find(r=>r.id===id);if(!row){s.myError='That shared copy is no longer listed. Nothing was changed.';paintShareDialog();break;}s.draft=draftFromRow(project,row,s.draft.penName);s.draft.phase='form';s.draft.preview=null;s.draft.binding=null;paintShareDialog();break;}
+case'share-unpublish':{const s=communityUI.share;const row=s?.myRows.find(r=>r.id===id);showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">Withdraw this copy?</h2><p>“${esc(row?.title||'Untitled')}” leaves the shared community. Likes and cloud phrases on it are withdrawn with it. Your story on this device stays exactly as it is.</p><div class="dialog-actions"><button class="button outline" data-action="share-reopen">Keep it</button><button class="button primary" data-action="share-unpublish-confirm" data-id="${esc(id||'')}">Withdraw copy</button></div>`);break;}
+case'share-unpublish-confirm':await confirmShareUnpublish(id);break;
+case'real-like':{const card=communityUI.openRealCard;if(!card||card.publishedId!==id)break;if(!signedIn()){realNote('Sign in to like a shared story. The story stays readable.');break;}try{await ensureAuthClient();await refreshAccount(authClient,account);}catch{realNote('Witness could not reach the community service. Nothing was changed.');break;}if(!account.userId){realNote('Sign in to like a shared story. The story stays readable.');break;}const uid=account.userId,token=card.token;const r=await toggleRealLike(authClient,account,card.publishedId,isRealLiked(communityUI,card.publishedId));if(communityUI.openRealCard?.token!==token||account.userId!==uid)break;if(!r.ok){realNote(r.error);break;}applyLikeResult(communityUI,card.publishedId,r.liked);b.setAttribute('aria-pressed',String(r.liked));b.textContent=r.liked?'Unlike ♥':'Like ♡';realNote(r.liked?'Liked under your account.':'Like removed.');break;}
+case'real-save':{const card=communityUI.openRealCard;if(!card||card.publishedId!==id)break;const sel=selectionInsideParagraphs();const problem=sel.error||validateStorySelection(sel.text,storyParagraphTexts());if(problem){realNote(problem);break;}await saveRealQuote(card,sel.text);break;}
+case'real-save-para':{const card=communityUI.openRealCard;if(!card)break;const paras=storyParagraphTexts(),para=paras[Number(b.dataset.n)];if(typeof para!=='string'||!para.trim()){realNote('There is no passage to save here.');break;}const whole=para.replace(/^\s+|\s+$/g,'');if(quoteFromSelection(whole,card.match).error){realNote(quoteFromSelection(whole,card.match).error);break;}await saveRealQuote(card,whole);break;}
+case'cloud-quotes-refresh':await refreshCloudQuotes(false);break;
+case'topic':start(id);break;
  case'prompt-browse':if(interviewFlow.phase!=='pending')promptDialog(p);break;
  case'prompt-another':p.memoryPromptOffset=(p.memoryPromptOffset||0)+1;save();render();break;
  case'prompt-dismiss':p.dismissedNudgeAt=p.answers.length;save();render();break;
  case'prompt-use':case'prompt-new':{if(interviewFlow.phase==='pending')break;const q=promptOptions(p).find(q=>q.id===id);if(!q)break;if(action==='prompt-new'){const x=newProject(q.topic,q.label);useMemoryPrompt(x,q);state.projects.push(x);go('interview',x.id);}else{useMemoryPrompt(p,q);invalidatePending();leaveVoice();save();render();$('#answer-input')?.focus();$('#answer-form')?.scrollIntoView({block:'center',behavior:'smooth'});}break;}
  case'example':{const x=exampleProject();state.projects.push(x);go('interview',x.id);break;}
- case'demo-browse':{showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">Demo <em>stories.</em></h2><p>Fictional interviews for trying the flow. Starting one gives you the first question with no answers submitted; loading a completed example submits every entry. Either way a new conversation starts; your stories are never overwritten.</p><div class="modal-topics">${INTERVIEW_FIXTURES.map(f=>{const t=TOPICS.find(t=>t.id===f.topic);return `<article class="demo-row"><div><strong>${esc(f.title)}</strong><small>${esc(t?.name||f.topic)} · ${f.entries.length} entries · fictional</small></div><div class="event-actions"><button class="button outline small" data-action="demo-start" data-id="${f.id}">Start demo interview</button><button class="button outline small" data-action="demo-load" data-id="${f.id}">Load completed example</button></div></article>`;}).join('')}</div>`);break;}
+ case'demo-browse':{showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">Demo <em>stories.</em></h2><p>Fictional interviews for trying the flow. Starting one gives you the first question with no answers submitted; loading a completed example submits every entry. Either way a new conversation starts; your stories are never overwritten.</p><div class="modal-topics">${DEMO_COLLECTION.map(f=>{const t=TOPICS.find(t=>t.id===f.topic);return `<article class="demo-row"><div><strong>${esc(f.title)}</strong><small>${esc(t?.name||f.topic)} · ${f.entries.length} entries · fictional${f.supporting?' · supporting story':''}</small></div><div class="event-actions"><button class="button outline small" data-action="demo-start" data-id="${f.id}">Start demo interview</button><button class="button outline small" data-action="demo-load" data-id="${f.id}">Load completed example</button></div></article>`;}).join('')}</div>`);break;}
  case'demo-start':{const f=fixtureById(id);if(!f)break;const x=buildDemoStarter(f);state.projects.push(x);go('interview',x.id);toast('Demo interview started. Speak or type each entry from the demo script.');break;}
  case'demo-load':{const f=fixtureById(id);if(!f)break;const x=buildDemoProject(f);state.projects.push(x);go('interview',x.id);toast('Completed demo loaded as a new conversation.');break;}
  case'home-record':startRecordingNow();break;
@@ -487,6 +1161,14 @@ case'interview-mock':if(interviewFlow.phase!=='error')break;await requestIntervi
  case'backup-current':download('witness-this-tab-draft.json',JSON.stringify(state,null,2),'application/json');break;
  case'reload-latest':if(voiceBusy()||voicePendingSaves()){toast('Wait for your audio to finish saving before reloading.');break;}window.location.reload();break;
  case'backup':download('witness-saved-data.json',localStorage.getItem(key)||'{}','application/json');break;
+ case'push-enable':{pushEnableClickSync();break;}
+ case'push-disable':{await pushDisableDevice();break;}
+ case'push-test':{await pushSendTest();break;}
+ case'push-quote':{await pushToggleQuote(id);break;}
+ case'push-prompt-start':startWithPushPrompt(id);break;
+ case'push-prompt-dismiss':pushPromptId=null;render();break;
+ case'push-pending-open':{const pending=pendingPushIntent;pendingPushIntent=null;if(pending)handlePushIntentObject(pending);else render();break;}
+ case'push-pending-dismiss':pendingPushIntent=null;render();break;
  case'about':showDialog(`<button class="modal-close" data-action="close" aria-label="Close">×</button><h2 id="modal-title">About <em>Witness.</em></h2><p>Answer one question at a time, by voice or text. Review your answers, shape them into a story, and trace each passage to its source.</p><p>Interview questions and event drafts use live AI when the local server enables it, with a local preview as backup. Story assembly and video storyboards use local rules, not AI rewriting.</p><p>Your stories are stored in this browser. Clearing browser data removes them, so download anything you want to keep.</p><button class="button primary" data-action="close">Got it ↗</button>`);break;
  }}catch(err){toast(err.message);}
 });
@@ -494,9 +1176,16 @@ document.addEventListener('submit',async e=>{
  if(e.target.id==='answer-form'){e.preventDefault();if(interviewFlow.phase==='pending')return;if(voiceBusy()){toast('Stop recording before continuing.');return;}const p=current(),text=new FormData(e.target).get('answer');try{addAnswer(p,text);}catch(err){toast(err.message);return;}leaveVoice();save();await requestInterview(p,'auto');}
  else if(e.target.id==='collection-event-form'){e.preventDefault();const p=current(),f=Object.fromEntries(new FormData(e.target));try{confirmCollectionEvent(p,e.target.dataset.entry,f,f.capture);save();render();toast('Event confirmed. It is now available in Connect.');}catch(err){toast(err.message);}}
 
- else if(e.target.id==='event-form'){e.preventDefault();const p=current(),f=Object.fromEntries(new FormData(e.target));try{confirmEvent(p,{title:f.title,summary:f.summary,dateText:f.dateText.trim()||null,location:f.location.trim()||null,people:f.people.split(',').map(x=>x.trim()).filter(Boolean),themes:f.themes.split(',').map(x=>x.trim()).filter(Boolean)});save();render();toast('Event confirmed.');}catch(err){toast(err.message);}}
- else if(e.target.id==='video-form'){e.preventDefault();const p=current(),options=Object.fromEntries(new FormData(e.target));try{saveVideo(p,(await witnessAI.video({...projectInput(p),event:p.event,options})).result,options);save();render();}catch(err){toast(err.message);}}
+ else if(e.target.id==='share-form'){e.preventDefault();submitShareForm(e.target);}
+ else if(e.target.id===PUSH_PREFS_FORM_ID){e.preventDefault();await submitPushPrefs(e.target);}
+else if(e.target.id==='share-publish-form'){e.preventDefault();await submitSharePublish();}
+else if(e.target.id==='event-form'){e.preventDefault();const p=current(),f=Object.fromEntries(new FormData(e.target));try{confirmEvent(p,{title:f.title,summary:f.summary,dateText:f.dateText.trim()||null,location:f.location.trim()||null,people:f.people.split(',').map(x=>x.trim()).filter(Boolean),themes:f.themes.split(',').map(x=>x.trim()).filter(Boolean)});save();render();toast('Event confirmed.');}catch(err){toast(err.message);}}
+ else if(e.target.id==='video-form'){e.preventDefault();const p=current(),options=Object.fromEntries(new FormData(e.target));const story=p.story?.passages?.map(({text,sourceId,sourceRevision})=>({text,sourceId,sourceRevision}));try{saveVideo(p,(await witnessAI.video({...projectInput(p),event:p.event,options,...(story?.length?{story}:{})})).result,options);save();render();}catch(err){toast(err.message);}}
  else if(e.target.matches('.review-card')){e.preventDefault();const p=current();try{reviseAnswer(p,e.target.dataset.answer,new FormData(e.target).get('answer'));save();render();toast('Answer saved.');}catch(err){toast(err.message);}}
+ else if(e.target.id==='book-new-form'){e.preventDefault();const title=String(new FormData(e.target).get('title')??'');if(!title.trim()){bookNotice='Give your book a title first.';render();return;}if(books.length>=MAX_BOOKS){bookNotice=`You already have ${MAX_BOOKS} books. Delete one before starting another.`;render();return;}const book=blankBook(title);if(commitBooks([...books,book],'')){activeBookId=book.id;bookNotice='';render();}}
+ else if(e.target.id==='book-title-form'){e.preventDefault();const title=String(new FormData(e.target).get('title')??'');mutateBook(book=>setBookTitle(book,title));}
+ else if(e.target.id==='book-add-form'){e.preventDefault();const storyId=String(new FormData(e.target).get('storyId')??'');mutateBook(book=>addChapter(book,state.projects.find(x=>x.id===storyId)));}
+ else if(e.target.getAttribute&&e.target.getAttribute('data-chapter-form')){e.preventDefault();const chapterId=e.target.getAttribute('data-chapter-form');mutateBook(book=>setChapterHeading(book,chapterId,String(new FormData(e.target).get('heading')??'')));}
 });
 document.addEventListener('input',e=>{
  const p=current();if(!p)return;
@@ -510,7 +1199,8 @@ document.addEventListener('input',e=>{
  if(e.target.id==='weekly-edit-title'){weeklyFlow.draftTitle=e.target.value;return;}
  if(e.target.id==='weekly-edit-narrative'){e.target.style.height='auto';e.target.style.height=(e.target.scrollHeight+4)+'px';weeklyFlow.draftNarrative=e.target.value;return;}
 });
-document.addEventListener('change',e=>{if(e.target.id==='memory-nudges'){current().memoryNudges=e.target.checked;save();render();return;}if(e.target.dataset.uncertainty){const a=current().answers.find(a=>a.id===e.target.dataset.uncertainty);a.uncertaintyReviewed=e.target.checked;save();return;}if(e.target.id==='weekly-tz'){const p=current(),tz=e.target.value;if(!validTimeZone(tz))return;weeklyState(p);const g=groupAnswersByWeek(p.answers,tz),newest=g.weeks.length?g.weeks[0][0]:null;Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,weekStart:newest,timeZone:tz,selectedIds:newest?g.weeks[0][1].map(a=>a.id):[]});save();render();return;}if(e.target.id==='weekly-week'){const p=current();weeklyState(p);const list=(groupAnswersByWeek(p.answers,weeklyFlow.timeZone).weeks.find(w=>w[0]===e.target.value)?.[1])||[];Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,weekStart:e.target.value,selectedIds:list.map(a=>a.id)});save();render();return;}if(e.target.matches('.weekly-entry input')){const sel=new Set(weeklyFlow.selectedIds);e.target.checked?sel.add(e.target.value):sel.delete(e.target.value);weeklyFlow.selectedIds=[...sel];if(weeklyFlow.binding||weeklyFlow.proposal){Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,editing:false});save();render();return;}const n=$('#weekly-count');if(n)n.textContent=`${weeklyFlow.selectedIds.length} ${weeklyFlow.selectedIds.length===1?'entry':'entries'} selected.`;const gen=$('#weekly-generate');if(gen)gen.disabled=!weeklyFlow.selectedIds.length||weeklyFlow.phase==='pending';}});
+document.addEventListener('change',e=>{if(e.target.matches('[data-real-topic]')){communityUI.real.pickedTopics=togglePickedTopic(communityUI.real.pickedTopics,e.target.value,e.target.checked);if(state.view==='connect'&&communityUI.connectMode==='real')refreshConnectMount();return;}
+if(e.target.matches('[data-discovery-filter]')){stopDiscoverySim();cancelDiscovery(communityUI);setDiscoveryFilters(communityUI.discovery,readDiscoveryFiltersFromDOM());if(state.view==='connect'&&communityUI.connectMode==='real')refreshConnectMount();return;}if(e.target.id==='memory-nudges'){current().memoryNudges=e.target.checked;save();render();return;}if(e.target.dataset.uncertainty){const a=current().answers.find(a=>a.id===e.target.dataset.uncertainty);a.uncertaintyReviewed=e.target.checked;save();return;}if(e.target.id==='weekly-tz'){const p=current(),tz=e.target.value;if(!validTimeZone(tz))return;weeklyState(p);const g=groupAnswersByWeek(p.answers,tz),newest=g.weeks.length?g.weeks[0][0]:null;Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,weekStart:newest,timeZone:tz,selectedIds:newest?g.weeks[0][1].map(a=>a.id):[]});save();render();return;}if(e.target.id==='weekly-week'){const p=current();weeklyState(p);const list=(groupAnswersByWeek(p.answers,weeklyFlow.timeZone).weeks.find(w=>w[0]===e.target.value)?.[1])||[];Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,weekStart:e.target.value,selectedIds:list.map(a=>a.id)});save();render();return;}if(e.target.matches('.weekly-entry input')){const sel=new Set(weeklyFlow.selectedIds);e.target.checked?sel.add(e.target.value):sel.delete(e.target.value);weeklyFlow.selectedIds=[...sel];if(weeklyFlow.binding||weeklyFlow.proposal){Object.assign(weeklyFlow,{phase:'select',error:'',proposal:null,issues:[],binding:null,editing:false});save();render();return;}const n=$('#weekly-count');if(n)n.textContent=`${weeklyFlow.selectedIds.length} ${weeklyFlow.selectedIds.length===1?'entry':'entries'} selected.`;const gen=$('#weekly-generate');if(gen)gen.disabled=!weeklyFlow.selectedIds.length||weeklyFlow.phase==='pending';}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelector('.nav-connect')?.classList.add('tooltip-dismissed');}if((e.metaKey||e.ctrlKey)&&e.key==='Enter'&&e.target.id==='answer-input'){e.preventDefault();$('#answer-form').requestSubmit();}});
 // OAuth return only: when the URL carries ?code= or an access_token/error
 // fragment, the lazily loaded SDK exchanges/consumes it (detectSessionInUrl),
@@ -527,6 +1217,68 @@ async function handleOAuthReturn(){
 render();
 refreshAIMode();
 handleOAuthReturn();
+handlePushIntent();
+// Notification deep links are handled once through this single parsed-safe
+// handler — whether the intent came from the launch URL or from the
+// service worker postMessage below. A recognised intent routes to Saved or
+// shows the reminder question on Home. Recording, publishing, and
+// permission prompts never start from here.
+function handlePushIntentObject(intent){
+ if(!intent||(intent.kind!=='saved'&&intent.kind!=='prompt'))return;
+ if(intent.kind==='saved'){if(state.view!=='saved')go('saved');toast('Opened from your reminder.');}
+ else if(intent.kind==='prompt'){
+  if(intent.promptId&&MEMORY_PROMPTS.some(q=>q.id===intent.promptId)){
+   pushPromptId=intent.promptId;
+   if(state.view!=='home')go('home');else render();
+  }else if(state.view!=='home')go('home');
+ }
+}
+function handlePushIntent(){
+ let search='';
+ try{search=location.search;}catch{return;}
+ const intent=parsePushIntent(search);
+ if(!intent)return;
+ try{const u=new URL(location.href);u.search='';history.replaceState(null,'',u.toString());}catch{}
+ handlePushIntentObject(intent);
+}
+// Acting on a notification is safe only when nothing can be discarded: no
+// recording/transcription in progress and no unsent answer text. Otherwise
+// the validated intent waits as a pending action button the person can
+// choose after finishing — never auto-starting the mic or posting data.
+function pushIntentSafeNow(){
+ try{if(voiceBusy())return false;}catch{return false;}
+ try{
+  const input=document.querySelector('#answer-input');
+  if(input&&String(input.value||'').trim())return false;
+ }catch{return false;}
+ return true;
+}
+function consumePushIntent(intent){
+ if(pushIntentSafeNow()){handlePushIntentObject(intent);return;}
+ pendingPushIntent=intent;
+ try{toast('Your reminder is waiting — finish here first, then open it.');}catch{}
+ try{render();}catch{}
+}
+// The service worker never navigates an open window (that would discard a
+// recording or unsent text). It focuses the window and posts the validated
+// intent; only a WITNESS_PUSH message with a recognised kind is consumed,
+// through the same parsed-safe handler, and only when safe.
+try{
+ if(typeof navigator!=='undefined'&&'serviceWorker' in navigator&&navigator.serviceWorker){
+  navigator.serviceWorker.addEventListener('message',event=>{
+   const data=event&&event.data;
+   if(!data||data.type!=='WITNESS_PUSH')return;
+   const search=data.kind==='saved'?'?push=saved':(typeof data.promptId==='string'&&data.promptId?`?push=prompt&promptId=${data.promptId}`:'?push=prompt');
+   const intent=parsePushIntent(search);
+   if(intent)consumePushIntent(intent);
+  });
+ }
+}catch{/* push intents simply stay launch-URL only */}
+function pendingPushBanner(){
+ if(!pendingPushIntent)return '';
+ const label=pendingPushIntent.kind==='saved'?'Your saved lines reminder is waiting.':'A reflection question reminder is waiting.';
+ return `<section class="space-today" aria-label="Waiting reminder"><div class="room-hero"><div class="room-copy"><p class="date-line">From your reminder</p><p>${esc(label)} Nothing was started.</p><div class="space-actions"><button class="button primary" data-action="push-pending-open">Open it now →</button><button class="button outline" data-action="push-pending-dismiss">Not now</button></div></div></div></section>`;
+}
 
 document.addEventListener('pointerover',e=>{const button=e.target.closest('.nav-connect');if(button&&!button.contains(e.relatedTarget))button.classList.remove('tooltip-dismissed');});
 document.addEventListener('focusin',e=>{if(e.target.matches('.nav-connect'))e.target.classList.remove('tooltip-dismissed');});

@@ -26,7 +26,7 @@ requests only with explicit local server configuration.
    (`witness.saved.v1`, `witness.liked.v1`), separate from the stories schema.
    Exact wording only, with author/source attribution; deleting a private own story
    purges its saved quotations. Explicitly on-device: no totals, no accounts.
-3. **Supabase project setup (next, needs owner configuration).** Create the project,
+3. **Supabase project setup (next, needs project configuration).** Create the project,
    apply the schema with row-level security, configure storage buckets, then wire
    the app. Nothing in the app talks to Supabase until this lands.
 4. **Accounts with guest migration.** Email sign-up/sign-in via Supabase Auth;
@@ -46,9 +46,9 @@ requests only with explicit local server configuration.
    Acceptance: changing a published story's version updates or withdraws its
    matches; occasion and similarity labels never mix.
 7. **Media: private versus published storage.** Private recordings and scene images
-   stay in owner-scoped buckets; publishing copies only the approved media into
+   stay in user-scoped private buckets; publishing copies only the approved media into
    public-read buckets. Acceptance: private bucket URLs are signed and
-   owner-only; published media serves without credentials.
+   readable only by that user; published media serves without credentials.
 8. **Likes and quotes on the backend.** Likes become per-user rows (one per
    user/story); quotes carry author, source story id, version, and exact text.
    Counts shown are real counts from these rows. Local on-device likes migrate
@@ -64,13 +64,17 @@ requests only with explicit local server configuration.
     presented as closed-app notifications. Devices verify via stored subscriptions;
     unsubscribed or revoked devices stop receiving. Acceptance: no permission
     dialog appears before the user asks; disabling stops all pushes.
+    Status: schema, both Edge functions, the sender helper, behavior tests,
+    and the administrator setup guide (`docs/push-setup.md`) is in the repo, but
+    delivery is unconfigured — the push migration is NOT applied and no
+    secrets exist, so live push is untested and the app reports unconfigured.
 11. **Deployment.** Static app plus server and scheduled jobs deploy together;
     environment, DNS, and SMTP land with the release (see blockers).
 
 ## First blockers and configuration
 
 The Supabase Free project already exists in eu-west-1
-(https://fzsvvnkeybgtjqxbbqmk.supabase.co). To unblock accounts the owner
+(https://fzsvvnkeybgtjqxbbqmk.supabase.co). To unblock accounts the project maintainer
 provides the project URL and publishable key for browser access with RLS; no
 service-role key and no owned domain are needed for Supabase Auth. Sign-in is
 Google OAuth (free, no SMTP needed): the Google client ID/secret are configured
@@ -79,12 +83,12 @@ migration has been applied and strict rollback-only DB RLS checks returned
 PASS; no real app login has been tested yet, and no paid upgrades happen in
 this increment.
 
-Honest limits, from the owner's research of official pricing and docs:
+Honest limits, from official pricing and docs:
 
 - Supabase Free: 50k monthly active users, 500 MB database, 1 GB file storage,
   2 active projects; projects pause after 1 week idle. Enough to build and pilot;
   media-heavy or idle-sensitive production outgrows it.
-- Sign-in uses Google OAuth, included in Supabase Free with no SMTP: the owner
+- Sign-in uses Google OAuth, included in Supabase Free with no SMTP: the project maintainer
   enables the Google provider with the callback
   `https://fzsvvnkeybgtjqxbbqmk.supabase.co/auth/v1/callback` and allows the app
   redirect (`http://127.0.0.1:4173/` locally, plus the hosted URL later).

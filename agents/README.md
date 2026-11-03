@@ -10,6 +10,8 @@ separately trained models or background processes.
 | Archivist | [archivist.mjs](archivist.mjs) | Groups answers into distinct events, then drafts each event with its sources and uncertainty. |
 | Editor | [editor.mjs](editor.mjs) | Suggests wording for a passage. The narrator accepts or rejects it. |
 | Verifier | [verifier.mjs](verifier.mjs) | Checks event drafts and proposed wording against the source answers. |
+| Discovery | [discovery.mjs](discovery.mjs) | Reranks bounded public excerpts for a search query; abstains when nothing is genuinely similar. |
+| Art director | [art-director.mjs](art-director.mjs) | Plans 4–6 chronological illustrated scenes with captions, visuals, durations, and one shared style. |
 
 [index.mjs](index.mjs) maps API tasks to these roles.
 [The Meta adapter](../server/ai/meta.mjs) reads the selected configuration when
@@ -73,9 +75,11 @@ quality needs a separate bounded live evaluation. These configurations do not
 claim that weights have been trained or that quality has been validated live.
 
 The editor also drafts weekly stories from selected entries, with the same
-bounded verification and narrator review. Monthly story generation, discovery
-matching and a live art-director workflow remain later work. Video storyboard planning still uses local mocks;
-the existing Muse Image integration generates approved scene illustrations.
+bounded verification and narrator review. Monthly story generation and
+discovery matching remain later work. Video storyboards use the art-director
+role, live when configured and mocked by default; the existing Muse Image
+integration generates approved scene illustrations, reusing the approved
+first illustration as a visual reference for later scenes.
 
 The root [AGENTS.md](../AGENTS.md) contains development instructions for coding
 assistants. This directory contains the product's runtime role configurations.

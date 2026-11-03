@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Witness — Conversation (visual direction preview)</title>
+<style>
+:root{
+  --paper:#f3e9d2; --card:#faf4e3; --edge:#ddcda6;
+  --ink:#3a3128; --muted:#6e6151;
+  --moss:#5f7046; --moss-deep:#47552f;
+  --terra:#a85a30; --terra-deep:#81431f;
+  --serif:Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Verdana,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0; color:var(--ink); font-family:var(--sans); font-size:17px; line-height:1.55; background:var(--paper)}
+.wrap{max-width:920px; margin:0 auto; padding:20px 22px 60px}
+.preview-note{font-size:13px; color:var(--muted); border:1px dashed var(--edge); border-radius:8px; padding:8px 14px; margin:0 0 16px}
+.site-head{display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:4px 2px 16px}
+.site-head strong{font-family:var(--serif); font-size:26px}
+.site-head nav{display:flex; gap:14px; font-size:15px}
+.site-head nav a{color:var(--muted); text-decoration:none}
+.site-head nav a[aria-current]{color:var(--ink); font-weight:700}
+.paper{background:var(--card); border:1px solid var(--edge); border-radius:10px; padding:30px 32px; margin:0 0 24px}
+.story-title{margin:0 0 2px; font-family:var(--serif); font-size:22px}
+.answer-count{margin:0 0 16px; font-size:14px; color:var(--muted)}
+.turn{border-top:1px solid var(--edge); padding:14px 0}
+.turn:first-of-type{border-top:0; padding-top:0}
+.past-q{margin:0 0 6px; font-size:14px; color:var(--muted)}
+.past-q strong{color:var(--moss-deep); margin-right:8px}
+.turn blockquote{margin:0; font-family:var(--serif); font-size:17px}
+.current{border-top:2px solid var(--edge); margin-top:16px; padding-top:20px}
+.current-label{margin:0 0 8px; font-size:14px; color:var(--muted)}
+.question{font-family:var(--serif); font-size:28px; line-height:1.3; margin:0 0 16px}
+.capture-grid{display:grid; grid-template-columns:150px 1fr; gap:18px; align-items:start; margin-bottom:16px}
+.vignette{margin:0; border:1px solid var(--edge); border-radius:8px; overflow:hidden; background:#e6d3a8}
+.vignette svg{display:block; width:100%; height:auto}
+.vignette figcaption{font-size:11px; color:var(--muted); padding:4px 10px 8px}
+.capture-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+.rec-state{font-size:14px; color:var(--muted); width:100%}
+.button{font:inherit; font-size:16px; border-radius:9px; padding:11px 20px; cursor:pointer; border:1px solid var(--moss-deep)}
+.button.primary{background:var(--moss); color:#fbf7ea}
+.button.record{background:var(--terra); border-color:var(--terra-deep); color:#fdf6ea}
+.button.outline{background:transparent; color:var(--moss-deep)}
+.answer-box{width:100%; font-family:var(--serif); font-size:18px; line-height:1.7; color:var(--ink); background:var(--card); border:1px solid var(--edge); border-radius:6px; padding:10px 14px; min-height:120px; resize:vertical}
+.draft-note{display:flex; justify-content:space-between; align-items:center; gap:12px; margin:10px 0 0; flex-wrap:wrap}
+.draft-note small{color:var(--muted)}
+.speech{border:1px solid var(--edge); border-radius:8px; padding:14px 16px; margin-top:18px}
+.speech-title{margin:0 0 10px; font-size:15px}
+.speech-row{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px}
+.speech label{font-size:14px; color:var(--muted)}
+.speech select{font:inherit; font-size:15px; padding:7px 10px; border:1px solid var(--edge); border-radius:7px; background:#fffdf4; max-width:100%}
+.text-button{background:none; border:0; padding:4px 2px; font:inherit; font-size:15px; color:var(--moss-deep); cursor:pointer; text-decoration:underline; text-underline-offset:3px}
+.actions{display:flex; gap:18px; margin-top:20px; flex-wrap:wrap}
+footer nav{display:flex; gap:18px; font-size:14px}
+@media(max-width:720px){
+  body{font-size:16px}
+  .wrap{padding:14px 14px 48px}
+  .paper{padding:22px 18px}
+  .question{font-size:23px}
+  .capture-grid{grid-template-columns:1fr}
+  .vignette{max-width:230px}
+  .button{padding:12px 18px}
+  .answer-box{font-size:17px}
+  .speech select{width:100%}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="site-head">
+    <strong>Witness</strong>
+    <nav aria-label="Preview sections"><a href="home.html">My space</a><a href="interview.html" aria-current="page">Conversation</a><a href="connect.html">Connect</a></nav>
+  </header>
+
+  <section class="paper" aria-labelledby="current-q">
+    <h1 class="story-title">Three knocks through the wall</h1>
+    <p class="answer-count">2 answers · your words save as you go</p>
+
+    <div class="turn">
+      <p class="past-q"><strong>01</strong> Who would you like to remember?</p>
+      <blockquote>My sister moved to Toronto two years ago, I think. We call every Sunday evening.</blockquote>
+    </div>
+    <div class="turn">
+      <p class="past-q"><strong>02</strong> What do you remember from when you lived close?</p>
+      <blockquote>We shared a wall between our rooms. Three knocks meant good night.</blockquote>
+    </div>
+
+    <div class="current">
+      <p class="current-label">Current question</p>
+      <h2 class="question" id="current-q">What happens on the calls now?</h2>
+      <div class="capture-grid">
+        <figure class="vignette" aria-label="Small painted vignette: a telephone on a side table in lamplight">
+          <svg viewBox="0 0 150 130" role="img" aria-hidden="true">
+            <defs>
+              <filter id="grain2" x="0" y="0" width="100%" height="100%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/>
+                <feColorMatrix type="matrix" values="0 0 0 0 0.24 0 0 0 0 0.19 0 0 0 0 0.13 0 0 0 0.09 0"/>
+              </filter>
+              <radialGradient id="glow" cx="68%" cy="30%" r="60%">
+                <stop offset="0%" stop-color="#f7cf7d" stop-opacity=".8"/>
+                <stop offset="100%" stop-color="#e2a75c" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <rect width="150" height="130" fill="#4a3a2a"/>
+            <rect width="150" height="130" fill="url(#glow)"/>
+            <rect x="96" y="18" width="10" height="44" fill="#2e2620"/>
+            <path d="M88 22 q13 -14 26 0 l-4 8 h-18 Z" fill="#e9b96a"/>
+            <ellipse cx="101" cy="34" rx="6" ry="4" fill="#f7e2ae"/>
+            <rect x="18" y="86" width="114" height="10" rx="2" fill="#5d4227"/>
+            <rect x="26" y="96" width="9" height="34" fill="#4a3420"/>
+            <rect x="115" y="96" width="9" height="34" fill="#4a3420"/>
+            <rect x="46" y="62" width="34" height="24" rx="5" fill="#31404d"/>
+            <rect x="52" y="52" width="22" height="12" rx="6" fill="#22303a"/>
+            <circle cx="58" cy="74" r="5" fill="#c9d4cd"/>
+            <circle cx="68" cy="74" r="5" fill="#c9d4cd"/>
+            <path d="M80 70 q14 4 10 16" stroke="#22303a" stroke-width="2.5" fill="none"/>
+            <rect width="150" height="130" filter="url(#grain2)"/>
+          </svg>
+
+        </figure>
+        <div>
+          <div class="capture-row">
+            <button class="button record" type="button">● Record</button>
+            <button class="button outline" type="button">Stop</button>
+            <span class="rec-state">Not recording · up to 2 minutes</span>
+          </div>
+        </div>
+      </div>
+
+      <label class="current-label" for="answer">Or write your answer</label>
+      <textarea class="answer-box" id="answer" rows="4" placeholder="Take your time. Start with what comes to mind…"></textarea>
+      <p class="draft-note"><small>Your words are saved as you write.</small><button class="button primary" type="button">Keep going ↑</button></p>
+
+      <div class="speech">
+        <p class="speech-title"><label><input type="checkbox"> Read questions aloud</label></p>
+        <div class="speech-row">
+          <label>Voice
+            <select aria-label="Question voice">
+              <option>Device default (English)</option>
+              <option>Daniel · en-GB</option>
+              <optgroup label="Other voices"><option>Bells · en-US</option></optgroup>
+            </select>
+          </label>
+          <label>Speed
+            <select aria-label="Question speed">
+              <option>0.75×</option><option>0.9×</option><option selected>1×</option><option>1.1×</option><option>1.25×</option>
+            </select>
+          </label>
+        </div>
+        <div class="speech-row">
+          <button class="text-button" type="button">Preview voice</button>
+          <button class="text-button" type="button">Read again</button>
+          <button class="text-button" type="button">Stop</button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="text-button" type="button">Skip this question</button>
+        <button class="text-button" type="button">I’m ready to review →</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <nav aria-label="Preview screens"><a href="home.html">← My space</a><a href="connect.html">Connect →</a></nav>
+  </footer>
+</div>
+</body>
+</html>

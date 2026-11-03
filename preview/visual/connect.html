@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Witness — Connect (visual direction preview)</title>
+<style>
+:root{
+  --paper:#f3e9d2; --card:#faf4e3; --edge:#ddcda6;
+  --ink:#3a3128; --muted:#6e6151;
+  --moss:#5f7046; --moss-deep:#47552f;
+  --terra:#a85a30; --gold:#c99a4b;
+  --serif:Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Verdana,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0; color:var(--ink); font-family:var(--sans); font-size:17px; line-height:1.55; background:var(--paper)}
+.wrap{max-width:920px; margin:0 auto; padding:20px 22px 60px}
+.preview-note{font-size:13px; color:var(--muted); border:1px dashed var(--edge); border-radius:8px; padding:8px 14px; margin:0 0 16px}
+.site-head{display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:4px 2px 16px}
+.site-head strong{font-family:var(--serif); font-size:26px}
+.site-head nav{display:flex; gap:14px; font-size:15px}
+.site-head nav a{color:var(--muted); text-decoration:none}
+.site-head nav a[aria-current]{color:var(--ink); font-weight:700}
+.panel{background:var(--card); border:1px solid var(--edge); border-radius:10px; padding:24px 26px; margin:0 0 20px}
+.panel h1{font-family:var(--serif); font-size:24px; margin:0 0 4px}
+.panel .sub{margin:0 0 16px; color:var(--muted); font-size:15px}
+.event-list{display:flex; flex-direction:column; gap:8px; margin:6px 0 16px}
+.event-row{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
+  text-align:left; font:inherit; color:var(--ink); background:#fffdf4;
+  border:1px solid var(--edge); border-radius:10px; padding:10px 12px; cursor:pointer}
+.event-row strong{font-size:15px; font-weight:600}
+.event-row.selected{border-left:3px solid var(--terra)}
+.tag{font-size:12px; color:var(--muted); border:1px solid var(--edge); border-radius:20px; padding:2px 10px}
+.atlas{position:relative; border:1px solid var(--edge); border-radius:8px; overflow:hidden; background:#e8d9b4}
+.atlas svg{display:block; width:100%; height:auto}
+.legend{display:flex; gap:16px; flex-wrap:wrap; font-size:13px; color:var(--muted); margin:10px 2px 0}
+.legend i{display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px}
+.dot-origin{background:#a85a30}
+.dot-candidate{background:#c99a4b; box-shadow:0 0 6px 2px rgba(201,154,75,.55)}
+.dot-match{background:#5f7046; box-shadow:0 0 0 3px #faf4e3,0 0 0 4px #5f7046}
+.note{background:#fffdf4; border:1px solid var(--edge); border-radius:6px; padding:14px 18px; margin:14px 0 0; font-family:var(--serif); font-size:16px}
+.note small{display:block; font-family:var(--sans); font-size:13px; color:var(--muted); margin-top:6px}
+.filters{display:flex; gap:10px; flex-wrap:wrap; margin:0 0 16px}
+.filters label{font-size:14px; color:var(--muted)}
+.filters select{font:inherit; font-size:15px; padding:7px 10px; border:1px solid var(--edge); border-radius:7px; background:#fffdf4}
+.match{border-top:1px solid var(--edge); padding:14px 0}
+.match h3{font-family:var(--serif); font-size:19px; margin:0 0 4px}
+.match .why{margin:6px 0; font-size:15px}
+.match blockquote{margin:8px 0; font-family:var(--serif); border-left:3px solid var(--gold); padding-left:12px}
+footer nav{display:flex; gap:18px; font-size:14px}
+.button{font:inherit; font-size:15px; border-radius:9px; padding:9px 16px; cursor:pointer; border:1px solid var(--moss-deep); background:transparent; color:var(--moss-deep)}
+@media(max-width:720px){
+  body{font-size:16px}
+  .wrap{padding:14px 14px 48px}
+  .panel{padding:18px 14px}
+  .panel h1{font-size:21px}
+  .filters select{width:100%}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="site-head">
+    <strong>Witness</strong>
+    <nav aria-label="Preview sections"><a href="home.html">My space</a><a href="interview.html">Conversation</a><a href="connect.html" aria-current="page">Connect</a></nav>
+  </header>
+
+  <section class="panel" aria-labelledby="connect-h">
+    <h1 id="connect-h">Shared experiences</h1>
+    <p class="sub">One of your confirmed events, with outward connections to matching shared stories.</p>
+    <section aria-label="Your events">
+      <p class="eyebrow">YOUR EVENTS · FICTIONAL</p>
+      <div class="event-list">
+        <button class="event-row selected" aria-current="true">
+          <strong>Three knocks through the wall</strong>
+          <span class="tag">SELECTED</span>
+        </button>
+        <button class="event-row">
+          <strong>Dad's first message</strong>
+        </button>
+      </div>
+    </section>
+    <div class="filters" aria-label="Illustrative filters">
+      <label>Year <select><option>Any year</option><option>2020–2022</option></select></label>
+      <label>Place <select><option>Anywhere</option><option>Europe</option></select></label>
+      <button class="button" type="button">Search by meaning</button>
+    </div>
+    <div class="atlas" role="img" aria-label="Painted atlas preview with warm location lights for candidate and matched stories">
+      <svg viewBox="0 0 720 360" aria-hidden="true">
+        <defs>
+          <filter id="grain3" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" stitchTiles="stitch"/>
+            <feColorMatrix type="matrix" values="0 0 0 0 0.3 0 0 0 0 0.24 0 0 0 0 0.15 0 0 0 0.07 0"/>
+          </filter>
+          <radialGradient id="sea" cx="50%" cy="42%" r="75%">
+            <stop offset="0%" stop-color="#efe0bb"/>
+            <stop offset="100%" stop-color="#ddc696"/>
+          </radialGradient>
+          <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.2"/></filter>
+        </defs>
+        <rect width="720" height="360" fill="url(#sea)"/>
+        <g stroke="#b39a67" stroke-width="1" opacity=".5">
+          <line x1="60" y1="0" x2="60" y2="360"/><line x1="180" y1="0" x2="180" y2="360"/>
+          <line x1="300" y1="0" x2="300" y2="360"/><line x1="420" y1="0" x2="420" y2="360"/>
+          <line x1="540" y1="0" x2="540" y2="360"/><line x1="660" y1="0" x2="660" y2="360"/>
+          <line x1="0" y1="90" x2="720" y2="90"/><line x1="0" y1="180" x2="720" y2="180"/>
+          <line x1="0" y1="270" x2="720" y2="270"/>
+        </g>
+        <g fill="#cdb87f" filter="url(#soft)" opacity=".92">
+          <path d="M52 84 Q90 52 150 58 Q196 64 214 104 Q226 140 200 168 Q168 168 150 200 Q134 236 120 268 Q104 300 84 296 Q64 288 70 250 Q76 214 60 188 Q40 158 44 118 Z"/>
+          <path d="M150 276 Q180 268 200 288 Q214 312 196 332 Q172 340 158 322 Q146 302 150 276 Z"/>
+          <path d="M318 66 Q352 40 392 44 Q428 48 444 74 Q452 100 436 116 Q410 108 392 124 Q370 142 350 128 Q328 112 318 66 Z"/>
+          <path d="M336 150 Q368 142 392 158 Q408 186 402 224 Q394 264 376 292 Q360 296 352 268 Q342 230 330 200 Q324 172 336 150 Z"/>
+          <path d="M448 52 Q520 30 592 40 Q660 50 688 92 Q696 130 664 148 Q620 138 588 160 Q560 186 528 172 Q496 156 470 160 Q444 150 444 108 Z"/>
+          <path d="M560 220 Q610 210 648 226 Q668 248 654 272 Q628 288 600 278 Q574 264 560 220 Z"/>
+        </g>
+        <g fill="none" stroke="#8a6f3f" stroke-width="1.4" opacity=".65">
+          <path d="M52 84 Q90 52 150 58 Q196 64 214 104 Q226 140 200 168 Q168 168 150 200 Q134 236 120 268 Q104 300 84 296 Q64 288 70 250 Q76 214 60 188 Q40 158 44 118 Z"/>
+          <path d="M318 66 Q352 40 392 44 Q428 48 444 74 Q452 100 436 116 Q410 108 392 124 Q370 142 350 128 Q328 112 318 66 Z"/>
+          <path d="M336 150 Q368 142 392 158 Q408 186 402 224 Q394 264 376 292 Q360 296 352 268 Q342 230 330 200 Q324 172 336 150 Z"/>
+          <path d="M448 52 Q520 30 592 40 Q660 50 688 92 Q696 130 664 148 Q620 138 588 160 Q560 186 528 172 Q496 156 470 160 Q444 150 444 108 Z"/>
+        </g>
+        <path d="M357 72 Q377 44 397 71" fill="none" stroke="#a85a30" stroke-width="2"/>
+        <circle cx="357" cy="72" r="7" fill="#a85a30"/>
+        <circle cx="357" cy="72" r="11" fill="none" stroke="#a85a30" stroke-width="1.5" opacity=".6"/>
+        <circle cx="342" cy="103" r="5" fill="#c99a4b"/>
+        <circle cx="342" cy="103" r="9" fill="#c99a4b" opacity=".3"/>
+        <circle cx="397" cy="71" r="5.5" fill="#5f7046"/>
+        <circle cx="397" cy="71" r="10" fill="none" stroke="#5f7046" stroke-width="1.5"/>
+        <rect width="720" height="360" filter="url(#grain3)"/>
+      </svg>
+    </div>
+    <div class="legend" aria-label="Marker legend">
+      <span><i class="dot-origin"></i>Your event</span>
+      <span><i class="dot-candidate"></i>Candidate story (not ranked yet)</span>
+      <span><i class="dot-match"></i>Confirmed similar experience</span>
+    </div>
+    <aside class="note">“We tap the radiator twice before bed, so the other room knows we are still awake.”<small>Shared from Gdańsk · confirmed similar experience · fictional excerpt</small></aside>
+  </section>
+
+  <section class="panel" aria-label="Ranked matches">
+    <div class="match">
+      <h3>Signals through the wall <span class="tag">SIMILAR EXPERIENCE · FICTIONAL</span></h3>
+      <p class="why"><strong>Why it relates:</strong> a repeated good-night signal between rooms, kept up over years — the same kind of ritual, a different household.</p>
+      <blockquote>“We tap the radiator twice before bed, so the other room knows we are still awake.”</blockquote>
+      <button class="button" type="button">Read over the atlas →</button>
+    </div>
+    <div class="match">
+      <h3>Sunday calls home <span class="tag">SIMILAR EXPERIENCE · FICTIONAL</span></h3>
+      <p class="why"><strong>Why it relates:</strong> a weekly call holding a sibling bond across countries — shared rhythm, different details.</p>
+      <blockquote>“Every Sunday at six she calls, and we talk until the kettle boils.”</blockquote>
+      <button class="button" type="button">Read over the atlas →</button>
+    </div>
+  </section>
+
+  <footer>
+    <nav aria-label="Preview screens"><a href="home.html">← My space</a><a href="interview.html">← Conversation</a></nav>
+  </footer>
+</div>
+</body>
+</html>

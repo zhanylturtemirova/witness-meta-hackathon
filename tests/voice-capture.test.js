@@ -24,10 +24,11 @@ async function loadVoice(els) {
   if (!voice) {
     globalThis.window = {addEventListener() {}};
     globalThis.fetch = async () => { throw Error('offline'); };
-    globalThis.document = {activeElement: null, querySelector: sel => els[sel] || null};
+    globalThis.document = {activeElement: null, querySelector: sel => els[sel] || null, querySelectorAll: sel => els['all:' + sel] || []};
     voice = await import('../web/voice.js');
   } else {
     globalThis.document.querySelector = sel => els[sel] || null;
+    globalThis.document.querySelectorAll = sel => els['all:' + sel] || [];
   }
   return voice;
 }
@@ -254,4 +255,16 @@ test('a blocked audio start aborts with a clear next tap', async () => {
   assert.match(els['#voice-error'].textContent, /Press Record again/);
   assert.equal(stopped, 1);
   assert.equal(voiceBusy(), false);
+});
+
+test('interview playback offers natural and telephone listening without touching the recording', async () => {
+  const els = freshEls();
+  const radios = [{value: 'natural', checked: false, onchange: null}, {value: 'telephone', checked: false, onchange: null}];
+  els['all:input[name="voice-listen"]'] = radios;
+  const {mountVoice} = await loadVoice(els);
+  const p = newProject('person');
+  mountVoice(p, {onApply: () => true, onNotify() {}, onSave() {}, onRevisit() {}});
+  assert.ok(radios.every(r => typeof r.onchange === 'function'), 'radio changes are wired');
+  assert.equal(radios[0].checked, true, 'natural is the default');
+  assert.equal(radios[1].checked, false);
 });

@@ -36,7 +36,7 @@ The normal path uses six upstream calls: one interview, one grouping, two event
 draft/check calls and two editor/check calls. Repairs share the same call budget;
 if it runs out, the report marks the case incomplete instead of claiming success.
 
-After the owner approves this bounded live run:
+After explicit authorisation of this bounded live run:
 
 ```bash
 npm run eval:agents -- --live --allow-paid-api --case FW-01 --max-calls 6 --timeout-ms 180000 --output exports/agent-evaluation-live.json

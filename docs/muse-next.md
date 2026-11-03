@@ -1,11 +1,10 @@
 # Witness: the next implementation stages
 
-Work in this Witness repository. Read AGENTS.md, the current diff, docs/redesign-plan.md and docs/muse-design-consultation.txt. Preserve the existing in-progress work. Do not reset, replace or rewrite unrelated changes.
+Work in this Witness repository. Read AGENTS.md, the current diff, docs/redesign-plan.md and docs/visual-direction.md. Preserve the existing in-progress work. Do not reset, replace or rewrite unrelated changes.
 
-Design sketches (four tabs: My space, Connect, Editing, Adaptations):
-/Users/zhanylturtemirova/.codex/visualizations/2026/10/19/01a1540f-dcda-7df0-a2ca-a216e7082156/witness-design-directions.html
+Design sketches (four tabs: My space, Connect, Editing, Adaptations) describe the intended layout and flow; they are proposals, not implemented features.
 
-The owner approves the direction below as a basis for implementation. This brief overrides the older planning-only wording. Implement one stage per turn, with checks and a clear result before moving to the next stage. Start Stage 1 now; do not merely produce another plan. Subsequent stages are the agreed roadmap, not a requirement to finish the whole product in one run.
+The direction below is the basis for implementation. This brief overrides the older planning-only wording. Implement one stage per turn, with checks and a clear result before moving to the next stage. Start Stage 1 now; do not merely produce another plan. Subsequent stages are the agreed roadmap, not a requirement to finish the whole product in one run.
 
 ## Product clarification that applies across stages
 
@@ -45,9 +44,7 @@ Inspect which roles are already implemented; extend rather than duplicate them. 
 
 ## Stage 4: Connect as Earth seen from space
 
-Reuse the textured Earth from:
-/Users/zhanylturtemirova/Documents/untitled folder/agentic frontend/master-dev-workshop/landing-page-example/src/world.ts
-and its original public/textures/earth-day.jpg and earth-night.jpg. Preserve licence and NASA texture credits. Do not use the separate Cobe dot-globe example or the sketch's reduced-resolution texture.
+Render a photoreal textured Earth (textured sphere with clouds, atmosphere, and day/night shading) using day and night Earth textures. Preserve licence and NASA texture credits (Blue Marble / Black Marble sources). Do not use a dot-globe treatment or a reduced-resolution texture.
 
 Adapt it to this app without importing the unrelated landing page. Use atmosphere, day/night shading and restrained clouds. The sidebar contains the person's own events. Selecting one establishes its event location as the origin, lights up matching shared events, then grows outgoing arcs in a short staggered sequence. Settled arcs remain faintly visible; focus highlights one line and story. Do not connect all other people to each other. Keep up to two readable excerpts, cluster dense markers, and keep all results available in the list. End the entry sequence; offer pause/replay, reduced motion, keyboard access and a WebGL fallback. Same-event matching needs compatible identifying details/date/place; similar experiences can match across countries and years with a concrete explanation. Arcs express the connection, not a journey. Use fictional counterpart stories until real sharing, access control and consent exist. Never expose private interviews as background quotes. Follow docs/journal-and-connect.md for examples and acceptance scenarios.
 
@@ -55,7 +52,7 @@ Adapt it to this app without importing the unrelated landing page. Use atmospher
 
 Saved passages and optional reminders: separate question/quote opt-ins, quiet hours and pause/off, no guilt or streaks. Start with saved passages and an honest in-app reminder inbox. Real closed-app push requires service-worker/backend infrastructure, permission and device testing; a timer is not push.
 
-Illustrated adaptations: a 20–45 second approved scene, coherent characters, original narration, captions and deliberate paper-cut, ink or miniature visual treatments. Muse Image generates images; layered code animation makes a motion comic. Do not call it a fully generated moving-video model. A later 2D game starts with one room and one meaningful interaction. Publisher/editor profiles, story submissions and rights offers are separate later work with explicit owner control; never expose a private archive or silently grant rights.
+Illustrated adaptations: a 20–45 second approved scene, coherent characters, original narration, captions and deliberate paper-cut, ink or miniature visual treatments. Muse Image generates images; layered code animation makes a motion comic. Do not call it a fully generated moving-video model. A later 2D game starts with one room and one meaningful interaction. Publisher/editor profiles, story submissions and rights offers are separate later work with explicit narrator control; never expose a private archive or silently grant rights.
 
 ## Working and verification rules
 

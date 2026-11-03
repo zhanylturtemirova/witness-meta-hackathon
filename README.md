@@ -1,15 +1,19 @@
 # Witness
 
-A space to look back on your life, tell the stories that matter to you, and find people who have lived through something similar.
+A space to preserve your memories, turn them into stories and films, and find people who have lived through something similar.
 
-Some memories help us understand who we are. Others deserve to be heard beyond our closest circle. Witness is designed to help people explore both — without needing to be a writer or knowing how to tell their story from the start.
+An AI interviewer follows the conversation, asks thoughtful questions, and helps turn scattered memories into stories that still sound like you — without needing to be a writer or knowing how to tell your story from the start. You choose what stays private and what you want to share.
 
-An AI interviewer follows the conversation, asks thoughtful questions, and helps turn scattered memories into stories that still sound like you. You choose what stays private and what you want to share.
+## The idea
+
+Memories fade unless they are kept. Witness exists to preserve personal memories and life events, and to bring together people connected by similar experiences — whether they shared one occasion or simply recognise themselves in each other across time and distance.
+
+Everyone deserves to be heard. Behind the app is a simple belief: every person's story matters and deserves to be captured. And lived experience is global — discovering that others felt what you felt reminds us how much we share.
 
 ## What Witness is for
 
-- **Looking back:** revisit turning points, relationships, places, and everyday moments to build your own retrospective of your life.
-- **Being heard:** shape an experience into a story you can share with family, friends, or a wider audience.
+- **Keeping memories:** record turning points, relationships, places, and everyday moments in an ongoing journal, so they are not lost.
+- **Being heard:** shape an experience into a story — or an illustrated film made from your own words — to share with family, friends, or a wider audience.
 - **Finding each other:** discover people through experiences they choose to share — moving to a new country, starting over, or even being at the same concert.
 
 A complete autobiography is one possible outcome. A single meaningful story can be enough.
@@ -24,15 +28,32 @@ The first build focuses on this interview-to-story flow. Connect previews a glob
 
 ## AI behind Witness
 
-**Meta Muse Spark 1.3** is the model for contextual interviews and life-event extraction. The app uses local mocks by default and can use live interview/event requests on the local server when deliberately enabled. Video planning stays mock-only.
+| Model | What it does in Witness |
+| --- | --- |
+| **Muse Spark 1.3** (`muse-spark-1.3`) | Asks contextual interview questions, structures answers into life events, and plans illustrated-film storyboards |
+| **Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) | Turns recorded answers into editable text for the narrator to review |
+| **Muse Image** (`muse-image-1.0`) | Illustrates approved scenes for the memory film, one image at a time |
+| **Muse Wonder** (`muse-wonder-1.0`) | Optional experiment: a separate review step to catch unsupported details |
 
-**Muse Image 1.0** creates illustrations from a selected, approved interview scene. Generate one image at a time, review it, and use it in the illustrated film. **Muse Voice Transcribe** turns recorded answers into editable text when the local server enables it.
-
-See [Models and their roles](docs/meta-models.md) for the details.
+The app uses local mocks by default and makes no model calls until live requests are deliberately enabled on the local server. See [Models and their roles](docs/meta-models.md) for the details.
 
 The interviewer, archivist, editor and verifier are configured in [agents/](agents/README.md). The server uses these role files directly; they share Muse Spark with separate instructions.
 
 Run `npm run eval:agents` to rehearse the roles on fictional interviews without network calls. [Agent evaluation](docs/agent-evaluation.md) explains the report, human review and a separately enabled live check with a call budget.
+
+## Memory films
+
+An approved story can become an illustrated film: each scene gets a Muse Image illustration (or your own picture), and the app exports a downloadable video with gentle camera movement, transitions, and subtitles in your own words, plus optional recorded narration. Every image names the model that created it.
+
+## On your phone
+
+Witness installs as an app (PWA) and keeps working offline: saved stories stay readable, and writing and recording stay available without a connection. [Installation and offline behaviour](docs/pwa.md).
+
+Optional reminders can nudge you back to the conversation — a saved phrase resurfacing, or a new question inviting you to start or continue reflecting. Reminders need a signed-in account and server setup, and stay off unless you enable them. [Push setup](docs/push-setup.md).
+
+## Saved lines
+
+Phrases worth keeping don't have to stay buried in stories. Save exact words from your own stories or from stories shared with you; liked stories are kept too. Everything saved stays on your device unless you explicitly choose otherwise.
 
 ## Try it locally
 

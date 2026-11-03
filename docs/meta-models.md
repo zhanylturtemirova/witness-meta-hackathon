@@ -4,7 +4,7 @@ The text experience is designed around one main model. Other models are options 
 
 | Model | Role in Witness | Scope |
 | --- | --- | --- |
-| **Muse Spark 1.3** (`muse-spark-1.3`) | Ask contextual questions, structure life events, and plan video interviews from approved material | Live interviews and events on the local server when configured; video plans use local mocks |
+| **Muse Spark 1.3** (`muse-spark-1.3`) | Ask contextual questions, structure life events, and plan illustrated films from approved material | Live interviews, events, and storyboards on the local server when configured; mocks stay the default |
 | **Muse Wonder** (`muse-wonder-1.0`) | Explore whether a separate review step can better catch unsupported details in a draft | Optional experiment |
 | **Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) | Turn spoken memories into text for the narrator to review | Live on the local server when configured; local recording otherwise |
 | **Muse Image** (`muse-image-1.0`) | Illustrate approved interview excerpts for the memory film | Live server adapter and per-scene generation; requires live AI configuration |

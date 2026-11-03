@@ -95,7 +95,44 @@ export const INTERVIEW_FIXTURES=[
 ];
 export const DEMO_STORY_ID='FW-01';
 export const HOLDOUT_IDS=['FW-02','CO-02','MV-02','SH-01'];
-export function fixtureById(id){return INTERVIEW_FIXTURES.find(f=>f.id===id)||null;}
+// The browsable demo collection: four fictional stories for trying the flow,
+// separate from the evaluation fixtures above so eval counts never shift.
+// The last two are supporting stories for variety, not the main walkthrough.
+export const DEMO_COLLECTION=[
+ {id:'DC-01',title:'Three knocks through the wall',topic:'person',supporting:false,
+  entries:[
+   {q:'Who would you like to remember?',text:'My sister moved to Toronto two years ago, I think. We call every Sunday evening.'},
+   {q:'What do you remember from when you lived close?',text:'We shared a wall between our rooms. Three knocks meant good night.'},
+   {q:'What happens on the calls now?',text:'She knocks three times on the phone speaker before hanging up. I knock back on my desk.'}
+  ],
+  expected:{facts:['sister in Toronto','Sunday evening calls','three knocks meant good night','knocks on the phone and desk'],unknowns:['exact year of the move','sister occupation'],refs:[{entry:0,note:'calls'},{entry:1,note:'ritual'},{entry:2,note:'today'}]},
+  prohibited:['Kowalski','2019','Montreal','three children']},
+ {id:'DC-02',title:"Dad's first message",topic:'person',supporting:false,
+  entries:[
+   {q:'Who would you like to remember?',text:'My dad sent his first message last spring. No words, just a photo.'},
+   {q:'What was in the photo?',text:'His tomato plant on the balcony. One small green tomato.'},
+   {q:'Did he send more?',text:'One every few days now. Still no words. Under one photo he typed a single word: bigger.'}
+  ],
+  expected:{facts:['first message last spring','photo with no words','balcony tomato plant','regular photos'],unknowns:['dad name','city','phone type'],refs:[{entry:0,note:'first message'},{entry:1,note:'photo'},{entry:2,note:'habit'}]},
+  prohibited:['Petrov','2021','WhatsApp','birthday']},
+ {id:'DC-03',title:'"I checked the forecast"',topic:'small-moment',supporting:true,
+  entries:[
+   {q:'Which ordinary day do you keep coming back to?',text:'My father texts me before every trip. Short messages, usually about the weather.'},
+   {q:'What did the last one say?',text:'Last month he wrote: I checked the forecast. Take the blue jacket.'},
+   {q:'Did you listen?',text:'I took the jacket. It rained the whole weekend.'}
+  ],
+  expected:{facts:['texts before every trip','forecast message','took the blue jacket','rained all weekend'],unknowns:['destination','father name'],refs:[{entry:0,note:'habit'},{entry:1,note:'message'},{entry:2,note:'trip'}]},
+  prohibited:['Gatwick','2022','new car','surname']},
+ {id:'DC-04',title:'"Just stay on the line"',topic:'small-moment',supporting:true,
+  entries:[
+   {q:'What did Friday look like?',text:'On Fridays my friend and I call and leave the phones on the table.'},
+   {q:'What do you do while you talk?',text:'She cooks dinner and I fold laundry. We talk when something comes up.'},
+   {q:'How long did the last call run?',text:'Two hours last Friday. Mostly quiet.'}
+  ],
+  expected:{facts:['Friday calls','phones on the table','cooking and laundry','two hours, mostly quiet'],unknowns:['friend name','city'],refs:[{entry:0,note:'ritual'},{entry:1,note:'evening'},{entry:2,note:'last call'}]},
+  prohibited:['Zoom','2023','birthday','wedding']}
+];
+export function fixtureById(id){return INTERVIEW_FIXTURES.find(f=>f.id===id)||DEMO_COLLECTION.find(f=>f.id===id)||null;}
 // Builds a brand-new project from a fixture. Always creates fresh identities,
 // so loading a demo can never overwrite an existing story. Demo projects are
 // marked as fictional examples for visible provenance; no model path reads

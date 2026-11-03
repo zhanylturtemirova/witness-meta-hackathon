@@ -33,6 +33,17 @@ export function projectPoint(lon,lat,centerLon,centerLat,radius=1){
  const rad=Math.PI/180,phi=lat*rad,lambda=(lon-centerLon)*rad,tilt=centerLat*rad;
  return {x:radius*Math.cos(phi)*Math.sin(lambda),y:radius*(Math.cos(tilt)*Math.sin(phi)-Math.sin(tilt)*Math.cos(phi)*Math.cos(lambda)),z:Math.sin(tilt)*Math.sin(phi)+Math.cos(tilt)*Math.cos(phi)*Math.cos(lambda)};
 }
+// Projected silhouette of the unit globe for a canvas w×h CSS px: with the
+// camera always looking at the origin, the centre is the canvas centre;
+// the radius maps the angular radius asin(1/d) through the fov-42°
+// frustum — the same halfHeight-from-z*tan(fov/2) basis the workshop's
+// onResize uses. Zoom clamps mirror earth.js. Feeds the quote overlay's
+// limb-anchored emergence; rotation never moves the silhouette.
+export function projectGlobe(w,h,zoom=1){
+ const d=3.55/Math.max(.7,Math.min(1.5,Number.isFinite(zoom)?zoom:1));
+ const r=(h/2)*(1/Math.sqrt(d*d-1))/Math.tan(21*Math.PI/180);
+ return {cx:w/2,cy:h/2,r};
+}
 export function greatCircle(from,to,t){
  const vec=p=>{const phi=p.lat*Math.PI/180,theta=p.lon*Math.PI/180;return [Math.cos(phi)*Math.cos(theta),Math.cos(phi)*Math.sin(theta),Math.sin(phi)];};
  const a=vec(from),b=vec(to),dot=Math.max(-1,Math.min(1,a.reduce((sum,v,i)=>sum+v*b[i],0))),omega=Math.acos(dot);

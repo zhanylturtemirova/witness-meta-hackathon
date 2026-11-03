@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {INTERVIEW_FIXTURES,HOLDOUT_IDS,fixtureById,buildDemoProject,buildDemoStarter,DEMO_STORY_ID} from '../web/demo-fixtures.js';
+import {INTERVIEW_FIXTURES,HOLDOUT_IDS,fixtureById,buildDemoProject,buildDemoStarter,DEMO_STORY_ID,DEMO_COLLECTION} from '../web/demo-fixtures.js';
 import {CONNECT_EVENTS,CONNECT_STORIES,CONNECT_EXPECTATIONS} from '../web/connect-fixtures.js';
 import {TOPICS,validProject,exportStory,createStory} from '../web/domain.js';
 import {witnessAI,projectInput} from '../web/ai-client.js';
@@ -39,6 +39,30 @@ test('loading a demo always builds a fresh valid project, never overwrites', () 
     assert.deepEqual(a.answers.map(x => x.text), f.entries.map(e => e.text));
     assert.notEqual(a.id, b.id);
     assert.deepEqual(a.answers.map(x => x.id).some(id => b.answers.some(y => y.id === id)), false);
+  }
+});
+
+test('demo collection holds the four selected fictional stories', () => {
+  assert.deepEqual(DEMO_COLLECTION.map(f => f.id), ['DC-01', 'DC-02', 'DC-03', 'DC-04']);
+  assert.deepEqual(DEMO_COLLECTION.map(f => f.supporting), [false, false, true, true]);
+  assert.deepEqual(DEMO_COLLECTION.map(f => f.title), ['Three knocks through the wall', "Dad's first message", '"I checked the forecast"', '"Just stay on the line"']);
+  const evalIds = new Set(INTERVIEW_FIXTURES.map(f => f.id));
+  for (const f of DEMO_COLLECTION) {
+    assert.ok(!evalIds.has(f.id), f.id);
+    assert.ok(TOPICS.some(t => t.id === f.topic), f.id);
+    assert.ok(f.entries.length >= 1 && f.entries.length <= 6, f.id);
+    for (const e of f.entries) {
+      assert.ok(e.q.trim().length > 0 && e.text.trim().length > 0, f.id);
+      assert.ok(PRINTABLE.test(e.q + e.text + f.title), f.id);
+    }
+    assert.ok(f.expected.facts.length > 0 && f.prohibited.length > 0, f.id);
+    for (const r of f.expected.refs) assert.ok(f.entries[r.entry], f.id);
+    assert.equal(fixtureById(f.id), f);
+    const started = buildDemoStarter(f), loaded = buildDemoProject(f);
+    assert.equal(started.answers.length, 0);
+    assert.equal(loaded.answers.length, f.entries.length);
+    assert.equal(loaded.demoFixtureId, f.id);
+    assert.equal(loaded.example, true);
   }
 });
 

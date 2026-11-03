@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Witness — My space (visual direction preview)</title>
+<style>
+:root{
+  --paper:#f3e9d2; --card:#faf4e3; --edge:#ddcda6;
+  --ink:#3a3128; --muted:#6e6151;
+  --moss:#5f7046; --moss-deep:#47552f;
+  --terra:#a85a30; --terra-deep:#81431f;
+  --slate:#5f7482; --ochre:#c99a4b; --sienna:#9a5b33;
+  --serif:Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Verdana,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0; color:var(--ink); font-family:var(--sans); font-size:17px; line-height:1.55; background:var(--paper)}
+.wrap{max-width:920px; margin:0 auto; padding:20px 22px 60px}
+.preview-note{font-size:13px; color:var(--muted); border:1px dashed var(--edge); border-radius:8px; padding:8px 14px; margin:0 0 16px}
+.site-head{display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:4px 2px 16px}
+.site-head strong{font-family:var(--serif); font-size:26px}
+.site-head nav{display:flex; gap:14px; font-size:15px}
+.site-head nav a{color:var(--muted); text-decoration:none}
+.site-head nav a[aria-current]{color:var(--ink); font-weight:700}
+.hero{display:grid; grid-template-columns:1fr 210px; gap:0; background:var(--card); border:1px solid var(--edge); border-radius:10px; overflow:hidden; margin:0 0 26px}
+.hero-body{padding:30px 32px}
+.date-line{margin:0 0 8px; font-size:14px; color:var(--muted)}
+.question{font-family:var(--serif); font-size:31px; line-height:1.3; margin:0 0 6px}
+.hint{margin:0 0 20px; color:var(--muted); font-size:15px}
+.capture-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.button{font:inherit; font-size:16px; border-radius:9px; padding:11px 20px; cursor:pointer; border:1px solid var(--moss-deep)}
+.button.primary{background:var(--moss); color:#fbf7ea}
+.button.record{background:var(--terra); border-color:var(--terra-deep); color:#fdf6ea}
+.button.outline{background:transparent; color:var(--moss-deep)}
+.vignette{margin:0; min-height:100%; background:#e9d9b8}
+.vignette svg{display:block; width:100%; height:100%}
+.vignette figcaption{font-size:12px; color:var(--muted); padding:6px 12px 10px; background:#e9d9b8}
+.alt-row{display:flex; gap:18px; margin-top:14px; flex-wrap:wrap}
+.text-button{background:none; border:0; padding:4px 2px; font:inherit; font-size:15px; color:var(--moss-deep); cursor:pointer; text-decoration:underline; text-underline-offset:3px}
+h2.shelf-title{font-family:var(--serif); font-size:23px; margin:4px 2px}
+.shelf-sub{margin:0 2px 16px; color:var(--muted); font-size:15px}
+.letter{background:var(--card); border:1px solid var(--edge); border-radius:6px; padding:22px 26px; margin:0 0 16px}
+.letter h3{font-family:var(--serif); font-size:20px; margin:0 0 4px}
+.letter .meta{font-size:13px; color:var(--muted); margin:0 0 10px}
+.letter p.body{font-family:var(--serif); font-size:17px; margin:0 0 12px}
+.letter .resume{font-size:14px; color:var(--moss-deep); margin:0 0 12px}
+.letter-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.tag{font-size:12px; color:var(--muted); border:1px solid var(--edge); border-radius:20px; padding:2px 10px}
+footer{margin-top:24px; font-size:14px}
+footer nav{display:flex; gap:18px}
+@media(max-width:720px){
+  body{font-size:16px}
+  .wrap{padding:14px 14px 48px}
+  .hero{grid-template-columns:1fr}
+  .hero-body{padding:22px 18px}
+  .question{font-size:25px}
+  .vignette svg{max-height:170px}
+  .button{padding:12px 18px}
+  .letter{padding:18px 16px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="site-head">
+    <strong>Witness</strong>
+    <nav aria-label="Preview sections"><a href="home.html" aria-current="page">My space</a><a href="interview.html">Conversation</a><a href="connect.html">Connect</a></nav>
+  </header>
+
+  <section class="hero" aria-labelledby="today-q">
+    <div class="hero-body">
+      <p class="date-line">Tuesday, November 3 · A question for today</p>
+      <h1 class="question" id="today-q">Who would you like to remember?</h1>
+      <p class="hint">Talk for a minute, or write a few lines. Nothing is kept until you save it.</p>
+      <div class="capture-row">
+        <button class="button record" type="button">● Record a moment</button>
+        <button class="button outline" type="button">Write instead</button>
+      </div>
+      <div class="alt-row">
+        <button class="text-button" type="button">Another question</button>
+        <button class="text-button" type="button">Not now</button>
+      </div>
+    </div>
+    <figure class="vignette" aria-label="Small painted vignette: a lamp-lit window with a plant">
+      <svg viewBox="0 0 210 300" role="img" aria-hidden="true">
+        <defs>
+          <filter id="grain" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+            <feColorMatrix type="matrix" values="0 0 0 0 0.24 0 0 0 0 0.19 0 0 0 0 0.13 0 0 0 0.08 0"/>
+          </filter>
+          <radialGradient id="lamp" cx="50%" cy="38%" r="55%">
+            <stop offset="0%" stop-color="#f7cf7d" stop-opacity=".85"/>
+            <stop offset="60%" stop-color="#e2a75c" stop-opacity=".28"/>
+            <stop offset="100%" stop-color="#e2a75c" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="210" height="300" fill="#31404d"/>
+        <rect x="28" y="30" width="154" height="150" rx="6" fill="#5f7482"/>
+        <rect x="28" y="30" width="154" height="150" rx="6" fill="#2c3844" opacity=".55"/>
+        <path d="M28 150 Q70 118 105 142 T182 132 L182 180 L28 180 Z" fill="#3f5462"/>
+        <circle cx="150" cy="70" r="16" fill="#f2e3bd" opacity=".9"/>
+        <rect x="100" y="30" width="10" height="150" fill="#31404d"/>
+        <rect x="28" y="98" width="154" height="8" fill="#31404d"/>
+        <rect x="20" y="180" width="170" height="12" rx="3" fill="#6b4a2e"/>
+        <rect width="210" height="300" fill="url(#lamp)"/>
+        <path d="M105 232 q-4 -34 2 -52 M105 232 q-22 -16 -34 -44 M105 232 q22 -14 36 -40" stroke="#4f5f41" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <ellipse cx="107" cy="220" rx="10" ry="16" fill="#5f7046" transform="rotate(-18 107 220)"/>
+        <ellipse cx="86" cy="200" rx="8" ry="14" fill="#6d7f52" transform="rotate(-38 86 200)"/>
+        <ellipse cx="128" cy="202" rx="8" ry="14" fill="#55663f" transform="rotate(30 128 202)"/>
+        <path d="M78 232 h54 l-8 44 h-38 Z" fill="#9a5b33"/>
+        <path d="M78 232 h54 l-2 10 h-50 Z" fill="#7e4529"/>
+        <rect x="20" y="282" width="170" height="8" rx="3" fill="#4a3826"/>
+        <rect width="210" height="300" filter="url(#grain)"/>
+      </svg>
+
+    </figure>
+  </section>
+
+  <h2 class="shelf-title">Your shelf</h2>
+  <p class="shelf-sub">Conversations and stories to return to. On this device.</p>
+
+  <article class="letter">
+    <h3>Three knocks through the wall</h3>
+    <p class="meta"><span class="tag">FICTIONAL EXAMPLE</span> · Last touched yesterday</p>
+    <p class="body">We shared a wall between our rooms. Three knocks meant good night…</p>
+    <p class="resume">Paused at question 3 of this conversation · your draft is saved.</p>
+    <div class="letter-row"><a class="button primary" href="interview.html">Continue this conversation →</a></div>
+  </article>
+
+  <article class="letter">
+    <h3>Dad's first message</h3>
+    <p class="meta"><span class="tag">FICTIONAL EXAMPLE</span> · Finished story · 3 passages</p>
+    <p class="body">My dad sent his first message last spring. No words, just a photo…</p>
+    <div class="letter-row"><button class="button outline" type="button">Read →</button></div>
+  </article>
+
+  <footer>
+    <nav aria-label="Preview screens"><a href="interview.html">Conversation →</a><a href="connect.html">Connect →</a></nav>
+  </footer>
+</div>
+</body>
+</html>

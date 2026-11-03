@@ -32,7 +32,7 @@ test('confirmed collection event passes through the actual storyboard contract',
  const e=p.events[0];confirmCollectionEvent(p,e.id,e,eventContentSignature(e));
  const options={host:'thoughtful',setting:'sunlit-studio',tone:'warm'};
  const plan=await witnessAI.video({...projectInput(p),event:p.event,options});
- assert.equal(plan.result.scenes.length,3);assert.equal(plan.result.scenes[0].narratorText,p.answers[0].text);
+ assert.equal(plan.result.scenes.length,4);assert.equal(plan.result.scenes[0].narratorText,p.answers[0].text);assert.ok(plan.result.styleSpec);
 });
 
 test('building the current event reuses a matching collection entry instead of adding a duplicate',()=>{

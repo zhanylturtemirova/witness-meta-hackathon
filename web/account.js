@@ -35,11 +35,11 @@ export function isAccountFormSubmit(formId) {
 // and never overwrites an unrelated story or source dialog on auth events.
 export const ACCOUNT_DIALOG_MARKER = 'data-account-dialog';
 
-export function accountDialogHtml(acc, { pendingProjectTitle = '', openedRow = null } = {}) {
+export function accountDialogHtml(acc, { pendingProjectTitle = '', openedRow = null, notificationsHtml = '' } = {}) {
   const head = '<button class="modal-close" data-action="close" aria-label="Close">×</button><p class="eyebrow">ACCOUNT</p><h2 id="modal-title">Your <em>account.</em></h2>';
   const scopeNote = '<p class="muted">Guest stories stay in this browser. Cloud copies are text only — recordings stay on this device — and never mix into the shelf on their own.</p>';
   if (acc.status !== 'signed-in') {
-    return `<div ${ACCOUNT_DIALOG_MARKER}>${head}<p>Sign in with Google to keep cloud copies of your stories. Nothing uploads on its own.</p>${acc.error ? `<div class="stale-banner" role="alert">${esc(acc.error)}</div>` : ''}<div class="event-actions"><button class="button primary" data-action="account-google"><span class="google-mark" aria-hidden="true">G</span> Continue with Google</button></div><p class="muted">No sign-in needed to use Witness — guest stories on this device stay exactly as they are.</p></div>`;
+    return `<div ${ACCOUNT_DIALOG_MARKER}>${head}<p>Sign in with Google to keep cloud copies of your stories. Nothing uploads on its own.</p>${acc.error ? `<div class="stale-banner" role="alert">${esc(acc.error)}</div>` : ''}<div class="event-actions"><button class="button primary" data-action="account-google"><span class="google-mark" aria-hidden="true">G</span> Continue with Google</button></div><p class="muted">No sign-in needed to use Witness — guest stories on this device stay exactly as they are.</p>${notificationsHtml}</div>`;
   }
   const opened = openedRow
     ? `<section aria-label="Open cloud copy"><div class="section-heading"><h3>${esc(cloudRowTitle(openedRow))}</h3><span>revision ${esc(openedRow.revision)}</span></div><p class="muted">Importing makes a local copy on this device — the cloud copy stays as it is. Recordings stay on this device.</p><div class="event-actions"><button class="button primary small" data-action="cloud-import" data-id="${esc(openedRow.id)}">Make a local copy</button></div></section>`
@@ -47,7 +47,7 @@ export function accountDialogHtml(acc, { pendingProjectTitle = '', openedRow = n
   const pending = pendingProjectTitle
     ? `<section aria-label="Save this story"><div class="event-actions"><button class="button primary small" data-action="cloud-save">Save “${esc(pendingProjectTitle.slice(0, 80))}” to my account</button></div><p class="muted">Text only — recordings stay on this device.</p></section>`
     : '';
-  return `<div ${ACCOUNT_DIALOG_MARKER}>${head}<p>Signed in as <strong>${esc(acc.email || acc.userId || '')}</strong>.</p>${acc.error ? `<div class="stale-banner" role="alert">${esc(acc.error)}</div>` : ''}${scopeNote}${acc.notice ? `<div class="save-notice" role="status" aria-live="polite">${esc(acc.notice)}</div>` : ''}${pending}<section aria-label="Your cloud copies"><div class="section-heading"><h3>Your cloud copies</h3><button class="text-button" data-action="cloud-refresh">Refresh</button></div>${cloudListHtml(acc)}</section>${opened}<div class="event-actions"><button class="text-button" data-action="account-signout">Sign out</button></div></div>`;
+  return `<div ${ACCOUNT_DIALOG_MARKER}>${head}<p>Signed in as <strong>${esc(acc.email || acc.userId || '')}</strong>.</p>${acc.error ? `<div class="stale-banner" role="alert">${esc(acc.error)}</div>` : ''}${scopeNote}${acc.notice ? `<div class="save-notice" role="status" aria-live="polite">${esc(acc.notice)}</div>` : ''}${pending}<section aria-label="Your cloud copies"><div class="section-heading"><h3>Your cloud copies</h3><button class="text-button" data-action="cloud-refresh">Refresh</button></div>${cloudListHtml(acc)}</section>${opened}${notificationsHtml}<div class="event-actions"><button class="text-button" data-action="account-signout">Sign out</button></div></div>`;
 }
 
 export function accountNavLabel(acc) {

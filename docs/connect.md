@@ -18,6 +18,16 @@ The preview contains fourteen shared fictional stories and one unshared example.
 
 Real-user publishing, matching, accounts, and messaging still need a server and explicit sharing controls. The [journal and Connect plan](journal-and-connect.md) describes that direction.
 
+## Semantic discovery (Real stories mode)
+
+Real mode adds optional **Search with Muse** beside the local topic preview. Date/city filters narrow public stories on the device first, with no model call. One explicit click sends only the search text plus up to 40 public excerpts (summary and selected passages, 2000 characters each) to `POST /api/ai/discovery` for a single bounded Muse ranking; private answers never leave the device. Rankings map back onto the actual public rows, and withdrawn or revised rows drop out. Same-occasion badges still come only from matching occasion codes, never from the model.
+
+Config gates (honest, no fake fallback): the server needs `META_AI_ENABLED=true` plus `MODEL_API_KEY`, otherwise search reads as unavailable and the local preview keeps working. Publishing with date wording needs migration `supabase/migrations/20261105_discovery.sql` applied once; without it, publishing refuses instead of storing a copy without the narrator's wording.
+
+While a search is pending, the globe turns slowly and readable excerpts from the bound public candidates appear beside its visible edge — each quote is one card on a single layer above the canvas: it starts at the projected limb, travels outward into a readable rest, holds, then drifts further out and dissolves while the next crossfades in. Positions come from the live projected globe centre and radius, alternate limbs, and track zoom and resize. A quote shows only while its story's published location faces the camera; while it shows, its origin point glows softly on Earth with a tether that follows the moving card, and each card names its origin city. Both highlight and tether fade with the quote, and far-side points hide. These highlights mark candidate locations, never confirmed matches — ranked similarity connections appear only after validated results arrive. At most two quotes show on desktop and one on a phone. This is a waiting visualisation, not a live view of what the model is reading — the ranking request exposes no per-story progress. Reduced-motion settings and the motion toggle keep the scene still, and the animation stops in every terminal state (results, empty, error, cancellation). On narrow screens the globe sits between the event list and the filter form, so it stays reachable without scrolling through the whole form.
+
+Without live AI (mock mode), the panel offers **Preview the searching animation**: a clearly labelled 12-second simulation that cycles the same bound excerpts with no model call and no results. It exists so the motion can be reviewed without spending credits; it never paints a ranking.
+
 ## Attribution
 
 The renderer adapts the user's Master Dev Workshop Earth treatment. Three.js is vendored locally with its MIT licence; no external script or map request is needed. NASA day/night imagery and workshop attribution are in [the Earth assets README](../web/assets/earth/README.md).

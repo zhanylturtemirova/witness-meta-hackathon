@@ -1,0 +1,284 @@
+/* Witness warm-pencil theme.
+ * Warm cream paper canvas, colored-pencil accents, dark brown editorial
+ * serif headings, ochre/terracotta recording controls. Loaded AFTER
+ * styles.css so these rules win. Decorative texture only; text stays
+ * sharp and readable. */
+
+:root{
+  --paper:#f8f1de;
+  --paper-deep:#f0e5c9;
+  --paper-bright:#fffdf4;
+  --ink:#4a3a28;
+  --ink-soft:#6f6152;
+  --terra:#b0602e;
+  --terra-deep:#8a441d;
+  --ochre:#c98a3b;
+  --sage:#7a8455;
+  --sage-deep:#55613a;
+  --pencil-line:#d8c9a4;
+  --pencil-soft:#e7d9b8;
+  --serif:"Iowan Old Style",Palatino,Georgia,"Times New Roman",serif;
+}
+
+/* ---- paper canvas ---- */
+body{
+  /* Generated decorative art: warm-paper.png is a repeating paper-grain
+   * tile (no people, places, or personal data). Kept clearly visible at a
+   * 650px tile under a light cream wash so text stays crisp. */
+  background-color:#f3e8cf;
+  background-image:
+    linear-gradient(rgba(250,244,230,.28),rgba(250,244,230,.28)),
+    url("assets/illustrations/warm-paper.png");
+  background-size:auto,650px 650px;
+  color:var(--ink);
+}
+h1,h2,h3,.brand,.section-heading h2{
+  font-family:var(--serif);
+  color:#43331f;
+  font-weight:600;
+}
+a{color:var(--terra-deep)}
+
+/* ---- horizontal compact navigation across the top ---- */
+.sidebar{
+  position:sticky;
+  top:0;
+  width:100%;
+  flex-direction:row;
+  align-items:center;
+  gap:8px 18px;
+  flex-wrap:wrap;
+  padding:10px 22px;
+  background:var(--paper-bright);
+  border-right:0;
+  border-bottom:2px solid var(--pencil-line);
+  box-shadow:0 1px 0 rgba(138,68,29,.08);
+  z-index:20;
+}
+.brand{font-family:var(--serif);color:#43331f;font-size:24px}
+.brand-dot{color:var(--terra)}
+.sidebar nav{
+  margin-top:0;
+  flex-direction:row;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:2px 4px;
+}
+.nav-item{
+  color:var(--ink-soft);
+  padding:8px 12px;
+  width:auto;
+  border-radius:8px;
+  font-size:14px;
+}
+.nav-item>span:first-child{font-size:16px;width:auto}
+.nav-item:hover{background:var(--paper-deep);color:var(--ink)}
+.nav-item.active{background:#e9d9b8;color:#43331f}
+.nav-item.active .nav-connect-copy small{color:var(--ink-soft)}
+.nav-connect-copy small{color:var(--ink-soft)}
+.nav-connect-icon{color:var(--terra)}
+.nav-count{border-color:var(--pencil-line)}
+.nav-tooltip{display:none}
+.sidebar-bottom{
+  margin:0 0 0 auto;
+  border-top:0;
+  padding-top:0;
+}
+.sidebar-bottom small{color:var(--ink-soft);font-size:12px}
+.workspace{margin-left:0}
+.topbar{
+  border-bottom:1px solid var(--pencil-soft);
+  background:transparent;
+}
+.breadcrumb{color:var(--ink-soft)}
+.footer{border-top:1px solid var(--pencil-soft);color:var(--ink-soft)}
+
+/* ---- shared controls on paper ---- */
+.button.primary,
+button.primary{
+  background:var(--terra);
+  color:#fff8ea;
+  border-radius:10px;
+}
+.button.primary:hover,button.primary:hover{background:var(--terra-deep)}
+.text-button{color:var(--sage-deep)}
+.outline,.paper .outline,.conversation .outline,.event-panel .outline,
+.memory-card .outline,.review-card .outline,.connect-matches .outline,
+.space-library .outline,.space-continue .outline,.voice-box .outline{
+  border-color:var(--pencil-line);
+  background:var(--paper-bright);
+}
+select,input[type="text"],input:not([type]),textarea{
+  background:var(--paper-bright);
+  border:1px solid var(--pencil-line);
+  border-radius:8px;
+}
+select{
+}
+button:focus-visible,a:focus-visible,input:focus-visible,
+textarea:focus-visible,select:focus-visible,[tabindex]:focus-visible{
+  outline:3px solid var(--ochre);
+  outline-offset:2px;
+}
+
+/* ---- home: vignette left, controls right ---- */
+.space-today{
+  background:transparent;
+  border:0;
+  box-shadow:none;
+  padding:8px 0 4px;
+}
+.room-hero{
+  display:grid;
+  grid-template-columns:minmax(0,34%) minmax(0,1fr);
+  gap:32px;
+  align-items:center;
+}
+.room-copy .date-line{color:var(--terra-deep)}
+.pencil-vignette{margin:0;order:-1}
+.pencil-vignette img{
+  width:100%;
+  height:auto;
+  display:block;
+  border-radius:8px;
+  -webkit-mask-image:radial-gradient(ellipse 92% 90% at 50% 50%,#000 64%,transparent 98%);
+  mask-image:radial-gradient(ellipse 92% 90% at 50% 50%,#000 64%,transparent 98%);
+}
+@media (max-width:760px){
+  .room-hero{grid-template-columns:1fr;gap:18px}
+  .room-copy{order:-1}
+  .pencil-vignette{order:0}
+  .pencil-vignette img{max-height:230px;object-fit:contain;object-position:center top}
+}
+
+/* ---- story shelf: paper pages, faint pencil separators ---- */
+.space-library{
+  background:transparent;
+  border:0;
+  box-shadow:none;
+  margin-top:28px;
+  padding-top:20px;
+  border-top:1px dashed var(--pencil-line);
+}
+.space-library .muted,.space-more .muted{color:var(--ink-soft)}
+.space-library .memory-card{
+  background:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  border-bottom:1px solid var(--pencil-soft);
+}
+
+/* ---- interview / review / saved / book share the paper ---- */
+.conversation,.review-card,.event-panel,.memory-card,.paper,
+.story-layout,.voice-box,.space-continue,.clip-maker,.video-settings{
+  background:var(--paper-bright);
+  border:1px solid var(--pencil-soft);
+  border-radius:10px;
+  box-shadow:0 1px 2px rgba(90,70,40,.06);
+}
+.paper .muted,.conversation .muted,.review-card .muted,
+.event-panel .muted,.memory-card .muted,.story-layout .muted,
+.voice-box .muted{
+  color:var(--ink-soft);
+}
+
+/* ---- Connect: paper stage, cream quote notes ---- */
+.connect-heading h1{font-family:var(--serif);color:#43331f}
+.globe-panel,.globe-stage{
+  background:transparent;
+}
+.globe-panel{
+  background:transparent;
+  border:0;
+  box-shadow:none;
+}
+.globe-stage{
+  background:transparent;
+  border:0;
+  box-shadow:none;
+}
+.searching-excerpt,.earth-excerpt{
+  background:var(--paper-bright);
+  color:var(--ink);
+  border:1px solid var(--pencil-soft);
+  border-radius:3px 10px 4px 12px;
+  box-shadow:0 2px 5px rgba(90,70,40,.14);
+}
+#globe-pins,#quote-marks,.quote-links{
+  background:transparent;
+  border:0;
+  box-shadow:none;
+}
+.globe-panel-top h2,.connection-count,.connection-count span,.globe-drag-hint,.globe-panel-bottom,.globe-panel-bottom a,.connect-location-note,.earth-status{
+  color:var(--ink);
+}
+.globe-controls button,.globe-controls select{
+  background:var(--paper-bright);
+  color:var(--ink);
+}
+.globe-panel button:focus-visible,.globe-panel [tabindex]:focus-visible{
+  outline-color:var(--ochre);
+}
+/* small irregular cream paper notes; text stays sharp, no filters on text */
+.searching-excerpt *,.earth-excerpt *{
+  filter:none;
+  text-shadow:none;
+}
+.connect-matches .eyebrow{color:var(--terra-deep)}
+
+/* NASA Earth imagery attribution stays visible on paper */
+.earth-credit,.globe-credit,[class*="credit"]{color:var(--ink-soft)}
+
+/* Quiet hand-drawn accents; text and focus outlines remain crisp. */
+.sidebar{background:#faf3e5;border-bottom:1px solid #ddcba5;box-shadow:none}
+.brand{font-style:italic;font-size:29px;font-weight:500}
+.brand img{display:none}
+.nav-item.active{background:transparent;box-shadow:inset 0 -2px #b88851;border-radius:0;color:var(--terra-deep)}
+.nav-connect-copy small{display:none}
+.button.primary,.voice-record{border-radius:18px 13px 19px 12px / 12px 18px 13px 17px;box-shadow:inset 0 0 0 2px #ffffff20}
+.connect-event,.connection-card,.event-panel{border-color:#ddcda680;box-shadow:none}
+.searching-label{background:rgba(250,243,229,.95);color:var(--ink);border-color:var(--pencil-line);border-radius:12px}
+.searching-excerpt{border-radius:3px 8px 4px 10px;box-shadow:0 4px 12px #674b2426;background:#fff8e8}
+
+/* ---- Connect correction: compact heading, wide globe, paper notes ---- */
+.connect-heading{padding:10px 0 8px;align-items:center}
+.connect-heading h1{font-size:24px;line-height:1.25}
+.connect-heading p{font-size:14px;margin-top:4px}
+.connect-explorer{grid-template-columns:220px minmax(0,1fr);gap:18px}
+.connect-explorer>.event-panel{max-height:640px;overflow:auto}
+.globe-panel{background:transparent;border:0;box-shadow:none;color:var(--ink)}
+.globe-stage{height:clamp(520px,68vh,800px);min-height:520px;background:transparent}
+#connect-globe{height:100%}
+/* Header shares the same paper instead of masking it. */
+.sidebar{
+  background-image:
+    linear-gradient(rgba(250,243,229,.40),rgba(250,243,229,.40)),
+    url("assets/illustrations/warm-paper.png");
+  background-size:auto,650px 650px;
+}
+/* Letter scraps: paper lives on a background-only silhouette so text and
+ * focus stay crisp; editorial italic serif quote. */
+.searching-excerpt,.earth-excerpt{background:transparent;border:0;box-shadow:none}
+.searching-excerpt{position:absolute}
+.earth-excerpt{position:relative}
+.searching-excerpt::before,.earth-excerpt::before{
+  content:"";position:absolute;inset:-8px -12px;background-color:#fff8e8;background-image:linear-gradient(#fff8e866,#fff8e866),url("assets/illustrations/warm-paper.png");background-size:auto,460px;
+  border:1px solid var(--pencil-soft);
+  border-radius:4px 14px 5px 16px/14px 5px 16px 4px;
+  clip-path:polygon(2% 8%,12% 2%,30% 5%,48% 1%,66% 4%,84% 1%,97% 6%,99% 22%,96% 40%,99% 58%,95% 76%,98% 92%,82% 97%,64% 94%,46% 99%,28% 95%,12% 98%,3% 90%,0% 72%,4% 54%,1% 36%,4% 20%);
+  box-shadow:0 4px 12px rgba(103,75,36,.15);
+}
+.searching-excerpt p,.earth-excerpt p{position:relative;font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.5;color:var(--ink)}
+.searching-excerpt small,.earth-excerpt small{position:relative}
+/* Honey-amber glow for quote origin dots on the paper globe. */
+.quote-mark{background:#ffe3a3!important;box-shadow:0 0 10px 2px rgba(201,138,59,.85),0 0 0 1.5px rgba(138,68,29,.6)!important}
+@media(max-width:900px){
+  .connect-explorer{grid-template-columns:1fr}
+  .connect-explorer>.event-panel{max-height:none}
+  .globe-stage{min-height:400px;height:52vh}
+  .globe-controls{position:static;margin-top:8px}
+}
+
+/* Animated notes use explicit left/top. Clear legacy bottom/right anchors. */
+.searching-excerpts .searching-excerpt{right:auto;bottom:auto;height:auto;max-height:none}

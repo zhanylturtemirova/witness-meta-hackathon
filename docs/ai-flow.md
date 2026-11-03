@@ -1,6 +1,6 @@
 # Interview → event → video plan
 
-Witness uses local mocks by default. The local server can use live Meta models for interview questions, event drafts, scene illustrations, and voice transcription when deliberately enabled. Video storyboards stay mock-only.
+Witness uses local mocks by default. The local server can use live Meta models for interview questions, event drafts, storyboards, scene illustrations, and voice transcription when deliberately enabled.
 
 ## The conversation
 
@@ -18,7 +18,7 @@ Live drafts follow the same rules. Existing event edits stay in place until a va
 
 A confirmed event with enough interview material opens **Preview the script**. Choose a fictional interviewer, setting, and tone, then create a storyboard. Scenes contain original interview questions, excerpts from actual answers, visual directions, and source links. Download the plan as JSON.
 
-Storyboard planning uses local mocks. Changes to the event or answers mark earlier plans for review. Existing plans keep their original source snapshots until explicitly replaced. Each scene excerpt needs explicit narrator approval before its illustration can be generated; edited answers or events invalidate approvals until reviewed again.
+Storyboard planning uses local mocks by default and the live art-director role when configured. Changes to the event or answers mark earlier plans for review. Existing plans keep their original source snapshots until explicitly replaced. Each scene excerpt needs explicit narrator approval before its illustration can be generated; edited answers or events invalidate approvals until reviewed again.
 
 After reviewing a current storyboard, add an image for each scene and choose **Create film**. The browser records a 1280 × 720 illustrated memory: full-frame images, slow camera movement, scene dissolves, and subtitles taken verbatim from the narrator's answers. **Preview motion** plays the composition before export. Images illustrate the story; they are not evidence of the event. Use **Generate scene with Meta** to create an illustration from an approved scene excerpt, with optional visual directions. Each generated image names its model; uploaded images are labelled separately.
 
@@ -36,7 +36,7 @@ Switching a question in the current conversation is blocked while an answer draf
 
 `server/ai/meta.mjs` prepares Muse Spark 1.3 chat completion requests for interviewing and event extraction. Each task has a system prompt, a JSON output schema, and source validation. Keys belong on the server.
 
-Live text is unlocked in code and additionally needs server environment: `META_AI_ENABLED=true` plus `MODEL_API_KEY`, so mocks stay the default. It does not enable transcription (`META_TRANSCRIPTION_ENABLED`) or video requests. Tests use injected fake transports only and make no live calls.
+Live text is unlocked in code and additionally needs server environment: `META_AI_ENABLED=true` plus `MODEL_API_KEY`, so mocks stay the default. It does not enable transcription (`META_TRANSCRIPTION_ENABLED`). Tests use injected fake transports only and make no live calls.
 
 The browser checks `GET /api/ai-status` before automatic requests. A missing endpoint or mock status uses local mocks automatically. A failed `POST /api/ai/interview` or `/api/ai/event` requires an explicit Retry or Continue with mock choice.
 

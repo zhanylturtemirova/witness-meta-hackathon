@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Witness — My space (design preview)</title>
+<style>
+:root{
+  --paper:#f2e8d4; --paper-card:#f8f2e4; --paper-edge:#e3d4b6;
+  --ink:#3b342a; --muted:#6f6455; --line:#d8c9a8;
+  --sage:#71835f; --sage-deep:#4f5f41;
+  --terra:#9c5636; --terra-deep:#7e4529;
+  --serif:Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Verdana,sans-serif;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; color:var(--ink); font-family:var(--sans); font-size:17px; line-height:1.55;
+  background:var(--paper) repeating-linear-gradient(0deg,transparent 0 26px,rgba(120,100,70,.05) 26px 27px);
+}
+.wrap{max-width:880px; margin:0 auto; padding:20px 22px 60px}
+.preview-note{
+  font-size:13px; color:var(--muted); border:1px dashed var(--line); border-radius:8px;
+  padding:8px 14px; margin:0 0 18px;
+}
+.site-head{display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:6px 2px 18px}
+.site-head strong{font-family:var(--serif); font-size:26px; font-weight:600}
+.site-head nav{display:flex; gap:14px; font-size:15px}
+.site-head nav a{color:var(--muted); text-decoration:none}
+.site-head nav a[aria-current]{color:var(--ink); font-weight:600}
+.paper{
+  background:var(--paper-card); border:1px solid var(--paper-edge); border-radius:6px;
+  box-shadow:0 2px 0 rgba(120,100,70,.12); padding:30px 32px; margin:0 0 26px;
+}
+.date-line{margin:0 0 10px; font-size:14px; color:var(--muted)}
+.question{font-family:var(--serif); font-size:31px; line-height:1.3; margin:0 0 6px; font-weight:600}
+.hint{margin:0 0 20px; color:var(--muted); font-size:15px}
+.capture-row{display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+.recorder{
+  width:64px; height:64px; flex:none; border:1px solid var(--line); border-radius:10px;
+  background:linear-gradient(180deg,#fbf6ea,#efe2c8); display:grid; place-items:center;
+}
+.button{
+  font:inherit; font-size:16px; border-radius:9px; padding:11px 20px; cursor:pointer;
+  border:1px solid var(--terra-deep);
+}
+.button.primary{background:var(--terra); color:#fff8ef}
+.button.outline{background:transparent; color:var(--terra-deep)}
+.alt-row{display:flex; gap:18px; margin-top:16px; flex-wrap:wrap}
+.text-button{background:none; border:0; padding:4px 2px; font:inherit; font-size:15px; color:var(--sage-deep); cursor:pointer; text-decoration:underline; text-underline-offset:3px}
+h2.shelf-title{font-family:var(--serif); font-size:23px; margin:6px 2px 4px}
+.shelf-sub{margin:0 2px 16px; color:var(--muted); font-size:15px}
+.letter{
+  background:var(--paper-card); border:1px solid var(--paper-edge); border-radius:4px;
+  box-shadow:0 2px 0 rgba(120,100,70,.12); padding:22px 26px; margin:0 0 16px; position:relative;
+}
+.letter::before{
+  content:""; position:absolute; top:12px; right:14px; width:34px; height:40px;
+  border:1px solid var(--line); border-radius:2px; background:var(--sage); opacity:.28;
+}
+.letter h3{font-family:var(--serif); font-size:20px; margin:0 0 4px; font-weight:600}
+.letter .meta{font-size:13px; color:var(--muted); margin:0 0 10px}
+.letter p.body{font-family:var(--serif); font-size:17px; margin:0 0 12px}
+.letter .resume{font-size:14px; color:var(--sage-deep); margin:0 0 12px}
+.letter-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.tag{font-size:12px; letter-spacing:.04em; color:var(--muted); border:1px solid var(--line); border-radius:20px; padding:2px 10px}
+.preview-link{display:inline-block; margin-top:8px}
+footer{margin-top:26px; font-size:13px; color:var(--muted)}
+@media(max-width:720px){
+  body{font-size:16px}
+  .wrap{padding:14px 14px 48px}
+  .paper{padding:22px 18px}
+  .question{font-size:25px}
+  .site-head nav{gap:10px; font-size:14px}
+  .button{padding:12px 18px}
+  .letter{padding:18px 16px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="site-head">
+    <strong>Witness</strong>
+    <nav aria-label="Preview sections"><a href="#" aria-current="page">My space</a><a href="#">Connect</a><a href="#">Saved</a><a href="#">Settings</a></nav>
+  </header>
+
+  <section class="paper" aria-labelledby="today-q">
+    <p class="date-line">Tuesday, November 3 · A question for today</p>
+    <h1 class="question" id="today-q">What did breakfast look like when you were little?</h1>
+    <p class="hint">Talk for a minute, or write a few lines. Nothing is kept until you save it.</p>
+    <div class="capture-row">
+      <span class="recorder" role="img" aria-label="Small tape recorder">
+        <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+          <rect x="4" y="8" width="30" height="22" rx="3" fill="none" stroke="#6f6455" stroke-width="2"/>
+          <circle cx="13" cy="19" r="5" fill="none" stroke="#6f6455" stroke-width="2"/>
+          <circle cx="25" cy="19" r="5" fill="none" stroke="#6f6455" stroke-width="2"/>
+          <circle cx="13" cy="19" r="1.4" fill="#9c5636"/>
+          <circle cx="25" cy="19" r="1.4" fill="#9c5636"/>
+          <rect x="14" y="31" width="10" height="3" rx="1" fill="#71835f"/>
+        </svg>
+      </span>
+      <button class="button primary" type="button">Record a moment</button>
+      <button class="button outline" type="button">Write instead</button>
+    </div>
+    <div class="alt-row">
+      <button class="text-button" type="button">Another question</button>
+      <button class="text-button" type="button">Not now</button>
+    </div>
+  </section>
+
+  <h2 class="shelf-title">Your shelf</h2>
+  <p class="shelf-sub">Conversations and stories to return to. On this device.</p>
+
+  <article class="letter">
+    <h3>The summer I learned to build</h3>
+    <p class="meta"><span class="tag">FICTIONAL EXAMPLE</span> · Last touched yesterday</p>
+    <p class="body">Ray showed me how to read a level. He never raised his voice, not once all summer…</p>
+    <p class="resume">Paused at question 4 of this conversation · your draft is saved.</p>
+    <div class="letter-row">
+      <a class="button primary preview-link" href="redesign-interview.html">Continue this conversation →</a>
+    </div>
+  </article>
+
+  <article class="letter">
+    <h3>A quiet rainy evening</h3>
+    <p class="meta"><span class="tag">FICTIONAL EXAMPLE</span> · Finished story · 2 passages</p>
+    <p class="body">Rain ran down the kitchen window all evening. I made soup and read for an hour…</p>
+    <div class="letter-row">
+      <button class="button outline" type="button">Read →</button>
+    </div>
+  </article>
+
+  <footer>
+    <a class="preview-link" href="redesign-interview.html">Open the connected interview screen →</a>
+  </footer>
+</div>
+</body>
+</html>

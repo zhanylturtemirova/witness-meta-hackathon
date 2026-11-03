@@ -1,6 +1,6 @@
 # Witness — product and design plan
 
-Product direction and implementation reference. The owner has approved optional device read-aloud and requested a staged implementation brief for Muse; docs/muse-next.md defines the currently authorised implementation scope. All product copy stays English. This plan incorporates a real read-only Muse Code design consultation; its full response is in [muse-design-consultation.txt](muse-design-consultation.txt). The interactive sketches are proposals, not implemented features.
+Product direction and implementation reference. Optional device read-aloud is part of the direction, and docs/muse-next.md defines the currently authorised implementation scope. All product copy stays English. The interactive sketches are proposals, not implemented features.
 
 ## Product decision
 
@@ -21,16 +21,15 @@ Reading view uses a restrained serif and wide margins, optional original-audio p
 ## Connect: Earth from space, then a human story
 
 Verified reuse candidate:
-- /Users/zhanylturtemirova/Documents/untitled folder/agentic frontend/master-dev-workshop/landing-page-example/src/world.ts
-- matching public/textures/earth-day.jpg and earth-night.jpg
+- A photoreal textured-Earth renderer (textured sphere with clouds, atmosphere, and day/night shading) with day/night Earth textures
 - Three.js 0.180.0; the project README identifies NASA Blue Marble and Black Marble texture sources.
 - This is the photoreal textured Earth with clouds, atmosphere and day/night shading. user-insights/src/components/world-globe.tsx is a different dot globe and is not the requested visual.
 
 Extract the Earth renderer and its texture loading, not the whole landing page, scroll choreography or unrelated cards. Preserve the code's MIT notice; verify and retain texture source credits before redistribution. The scene is deterministic rendering, not an AI content generator.
 
-Connect starts from the owner's event list in a side panel, not a generic topic picker. Selecting an event establishes its location as the origin. Matching shared events light up across the Earth; outgoing arcs grow from that origin to the matches in a short staggered sequence. Settled arcs remain faintly visible, with one line and story highlighted on focus. This replaces the earlier single-connection sketch: the intended view is a selected-origin set of connections, not an all-to-all mesh. Keep at most two readable excerpts, no continually replaying wall of quotes, and generous dark space. Cluster or progressively reveal dense results without dropping the remaining matches from the list. Pause/replay, reduced motion, keyboard access, a WebGL fallback and a mobile budget are required.
+Connect starts from the narrator's event list in a side panel, not a generic topic picker. Selecting an event establishes its location as the origin. Matching shared events light up across the Earth; outgoing arcs grow from that origin to the matches in a short staggered sequence. Settled arcs remain faintly visible, with one line and story highlighted on focus. This replaces the earlier single-connection sketch: the intended view is a selected-origin set of connections, not an all-to-all mesh. Keep at most two readable excerpts, no continually replaying wall of quotes, and generous dark space. Cluster or progressively reveal dense results without dropping the remaining matches from the list. Pause/replay, reduced motion, keyboard access, a WebGL fallback and a mobile budget are required.
 
-A connection represents a relationship between experiences, not a journey. Distinguish 'same event' (compatible named occasion, date and place) from 'similar experience' (for example, first jobs building cottages in different countries and years). The latter must compare relevant supplied details rather than require identical dates or places or match only a broad category. Show the supporting excerpts and why each result matches. Keep only owner-approved public excerpts eligible. Bookmarked private stories, private interviews and precise locations never become background decoration. Use fictional fixtures until real sharing and consent exist. Coarse location means a deliberately selected city/region, not inferred GPS or exact home coordinates.
+A connection represents a relationship between experiences, not a journey. Distinguish 'same event' (compatible named occasion, date and place) from 'similar experience' (for example, first jobs building cottages in different countries and years). The latter must compare relevant supplied details rather than require identical dates or places or match only a broad category. Show the supporting excerpts and why each result matches. Keep only narrator-approved public excerpts eligible. Bookmarked private stories, private interviews and precise locations never become background decoration. Use fictional fixtures until real sharing and consent exist. Coarse location means a deliberately selected city/region, not inferred GPS or exact home coordinates.
 
 ## Voice experience and retention
 
@@ -64,7 +63,7 @@ Closed-app push requires a service worker, a protected backend scheduler, subscr
 
 ## Illustrated film and a 2D memory scene
 
-Shift art direction from synthetic historical photos to deliberately illustrated adaptations. Style presets: paper-cut miniatures, symmetrical pastel interiors, dark ink fairytale, pencil travel diary, warm hand-drawn animation. Tim Burton / Wes Anderson are references to discuss with the owner, not the names of model capabilities; use visual attributes rather than copying recognizable characters, film shots or marketing an official collaboration.
+Shift art direction from synthetic historical photos to deliberately illustrated adaptations. Style presets: paper-cut miniatures, symmetrical pastel interiors, dark ink fairytale, pencil travel diary, warm hand-drawn animation. Describe each treatment through palette, texture, composition and lighting, with original characters and scenery.
 
 First storyboard only 20–45 seconds: 3–5 approved beats, coherent character design, original narration, captions and sound only when supplied/approved. Label the result 'Illustrated adaptation'. Ordinary pans/dissolves over images are a motion comic, not fully animated video. More expressive movement can use separate foreground/background layers, parallax, gentle puppet motion and timed actions, built with deterministic animation and approved Muse-generated assets. Rendering can remain code; it is not itself an AI model.
 
@@ -78,21 +77,21 @@ Start with private stories, an explicit shareable version, selected audience and
 
 Keep the core capture/reflection flow free as a product goal. Candidate revenue experiments: paid book assembly/export, optional human editing purchased by the narrator, and later publisher-request/licensing fees. Treat willingness to pay as a hypothesis to test; no revenue forecasts or automatic royalty promises.
 
-Publisher/editor roles are a later separate workspace. A person can submit chosen excerpts or respond to a publisher's request; no blanket access to private archives. Reading access, editing, promotional use, training use and adaptation rights are separate permissions. Proposed commercial flow: preview → request → exact scope/format/term/payment proposal → agreement reviewed/accepted by the owner → controlled handover → traceable payment. Do not promise that a completed rights sale is freely revocable. Contracts, payments, disputes and applicable law need their own design and professional review before transactions launch. Never train on a story merely because it was published or sold.
+Publisher/editor roles are a later separate workspace. A person can submit chosen excerpts or respond to a publisher's request; no blanket access to private archives. Reading access, editing, promotional use, training use and adaptation rights are separate permissions. Proposed commercial flow: preview → request → exact scope/format/term/payment proposal → agreement reviewed/accepted by the narrator → controlled handover → traceable payment. Do not promise that a completed rights sale is freely revocable. Contracts, payments, disputes and applicable law need their own design and professional review before transactions launch. Never train on a story merely because it was published or sold.
 
 ## Implementation phases and acceptance
 
 0. Use the approved staged scope in muse-next.md. Preserve existing work; don't push, deploy, change settings, train models, enable notifications or make paid generation requests as a side effect of planning.
 1. Reliability: fix the three review findings (stop/save navigation race; wrong-question transcript reuse; missing image download after restore), persistence failure paths and stale asynchronous callbacks. Prove reload/navigation with real IndexedDB in browser tests; Node fallback-only tests are insufficient.
 2. Private experience: concrete home question, clear voice/text flow, memory library, exact resume position, readable scene with original audio. No live authoring copy written as generic marketing. Test on narrow/mobile widths.
-3. Interview and editor roles: fictional eval set, baseline, source-linked proposed edits, narrator review. No paid end-to-end test until owner approves a bounded call plan.
+3. Interview and editor roles: fictional eval set, baseline, source-linked proposed edits, narrator review. No paid end-to-end test until the project maintainer approves a bounded call plan.
 4. Connect: isolate/reuse the verified Earth module, fictional demo, one finite arc sequence, up to two readable excerpts, coarse location and motion controls; no inference of a connection merely because two people have coordinates.
 5. Rediscovery: saved passages and an in-app reminder inbox, then separately approved real push infrastructure and device testing.
 6. Media experiment: compare one short motion-comic treatment with one layered illustration treatment; show an approved storyboard before paid image generation. Keep original narration. Judge if the result feels personal before expanding.
 7. One 2D memory-room prototype; stop if it adds no value to remembering or sharing.
 8. Real sharing, creator/editor profiles and a separately approved commercial-rights pilot. Do not let this delay a usable private product.
 
-For every phase, report changed files, checks, real vs mocked integrations, known limitations and request counts. Do not mix a prototype with implemented product claims. The phase is complete only when the owner can perform the intended human task, not just when unit tests pass.
+For every phase, report changed files, checks, real vs mocked integrations, known limitations and request counts. Do not mix a prototype with implemented product claims. The phase is complete only when a person can perform the intended human task, not just when unit tests pass.
 
 ## Implementation brief
 

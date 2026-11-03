@@ -8,6 +8,7 @@
     "dev": "node scripts/serve.mjs",
     "test": "node --test",
     "eval:agents": "node scripts/evaluate-agents.mjs",
+    "eval:interviewer": "node scripts/evaluate-interviewer.mjs",
     "muse": "node scripts/muse.mjs"
   },
   "engines": {

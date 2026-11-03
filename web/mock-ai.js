@@ -4,12 +4,17 @@ export const VIDEO_TONES=[{id:'warm',label:'Warm & personal'},{id:'documentary',
 export const VIDEO_SETTINGS=[{id:'sunlit-studio',label:'A sunlit studio',direction:'A quiet, sunlit studio with warm natural light.'},{id:'garden',label:'A quiet garden',direction:'A sheltered garden with soft daylight and a simple seating area.'},{id:'tv-show',label:'A late-night TV set',direction:'A fictional late-night TV set with a conversation desk and a softly lit backdrop.'}];
 export const VIDEO_HOSTS=[{id:'thoughtful',label:'A thoughtful listener'},{id:'curious',label:'A curious storyteller'},{id:'playful',label:'A playful interviewer'}];
 const REFUSAL_RE=/\b(i('d| would) rather not|don'?t want to talk about|not comfortable|don'?t ask|leave that|pass on (this|that)|i('d| would) rather stop)\b/i;
+// Explicit requests to finish close the interview with a statement, not the
+// refusal's invitation to continue — finishing must never trigger another
+// content question.
+const FINISH_RE=/\b(i want to (stop|finish)|let'?s (stop|finish)|we can stop here|i'?m done|i am done|no more questions|that'?s all for now|stop asking)\b/i;
 export function mockInterview(input){
  const ready=enoughMaterial(input),last=input.answers.at(-1),asked=input.answers.map(a=>a.question),used=new Set(input.askedIntents||[]);
  const candidates=[];
  if(!last)return {question:TOPICS.find(t=>t.id===input.topicId)?.opening||TOPICS[0].opening,intent:'opening',sourceRefs:[],enoughMaterial:false,suggestedNextStep:'continue'};
  const sourceRefs=[{answerId:last.id,revision:last.revision}];
  if(REFUSAL_RE.test(last.text))return {question:'Thank you for telling me. Would you like to remember something else instead, or shall we pause here?',intent:'wrap_up',sourceRefs,enoughMaterial:ready,suggestedNextStep:ready?'review_event':'continue'};
+ if(FINISH_RE.test(last.text))return {question:'Thank you for sharing this. Your answers are saved, and you can review them whenever you are ready.',intent:'wrap_up',sourceRefs,enoughMaterial:ready,suggestedNextStep:ready?'review_event':'continue'};
  const text=input.answers.map(a=>a.text).join(' ');
  if(hasUncertainty(last))candidates.push(['clarify','You mentioned that some details are uncertain. Is there anything you want to clarify, or would you rather leave it as you remember it?']);
  if(/\b(sister|brother|mother|father|friend|grandmother|grandfather)\b/i.test(last.text))candidates.push(['people','You mentioned someone who was there. What do you remember about being with them in that moment?']);
@@ -86,11 +91,30 @@ export function mockEvent(input){
  const detailsToConfirm=[];if(input.answers.some(hasUncertainty))detailsToConfirm.push('Some details are uncertain. Keep that uncertainty or clarify it in your answers.');if(!date)detailsToConfirm.push('No date was mentioned. You can leave it open.');if(!location)detailsToConfirm.push('No place was identified. You can leave it open.');
  return {title:input.title||'A memory worth keeping',summary:first.slice(0,Math.min(first.length,1200)),dateText:date,location,people,themes,detailsToConfirm,sourceRefs:answerRefs(input.answers)};
 }
+const STORY_BEATS=['Where it begins','Inside the memory','The turn','Looking back','What remains','The close'];
+// Spread the interview (or its approved story order) across 4-6 chronological
+// scenes. Answers shared by two scenes split into exact text halves so every
+// caption stays a verbatim trim of its cited answer. Depicts lists stay empty:
+// the mock claims no depicted people or places and asks nothing.
+function splitCaption(text,parts,part){
+ const clean=String(text||'').slice(0,500);
+ if(parts<2||!clean.trim())return clean;
+ let at=Math.round(clean.length*part/parts);
+ if(part>0)while(at<clean.length&&clean[at]!==' ')at++;
+ let end=Math.round(clean.length*(part+1)/parts);
+ while(end<clean.length&&clean[end]!==' ')end++;
+ return clean.slice(at,end).trim()||clean;
+}
 export function mockVideo(input){
  const setting=VIDEO_SETTINGS.find(s=>s.id===input.options.setting),tone=VIDEO_TONES.find(t=>t.id===input.options.tone).label,host=VIDEO_HOSTS.find(h=>h.id===input.options.host).label;
- const chosen=input.answers.length<=3?input.answers:[input.answers[0],input.answers[Math.floor(input.answers.length/2)],input.answers.at(-1)];
- const scenes=chosen.map((a,i)=>({title:['Where it begins','Inside the memory','Looking back'][i],hostQuestion:a.question,narratorText:a.text.slice(0,4000),visualDirection:`${setting.direction} ${host}. ${tone} tone. ${i===0?'Start with a wide shot of the fictional set.':'Use an unhurried conversation shot.'}`,sourceRefs:[{answerId:a.id,revision:a.revision}]}));
- return {title:input.event.title,logline:'A conversation built from the interview answers you reviewed.',scenes};
+ const units=(Array.isArray(input.story)&&input.story.length?input.story.map(s=>input.answers.find(a=>a.id===s.sourceId)).filter(Boolean):input.answers);
+ const list=units.length?units:input.answers,n=list.length,s=Math.min(6,Math.max(4,n));
+ const pick=Array.from({length:s},(_,i)=>Math.floor(i*n/s));
+ const scenes=pick.map((answerIndex,i)=>{
+  const a=list[answerIndex],uses=pick.filter(x=>x===answerIndex).length,part=pick.slice(0,i).filter(x=>x===answerIndex).length;
+  return {title:STORY_BEATS[i],hostQuestion:a.question,narratorText:a.text.slice(0,4000),visualDirection:`${setting.direction} ${host}. ${tone} tone. ${i===0?'Start with a wide shot of the fictional set.':'Use an unhurried conversation shot.'}`,caption:splitCaption(a.text,uses,part),visual:`${setting.direction} ${tone} tone.`,depictsPeople:[],depictsPlaces:[],seconds:5,openVisualQuestions:[],sourceRefs:[{answerId:a.id,revision:a.revision}]};
+ });
+ return {title:input.event.title,logline:'A conversation built from the interview answers you reviewed.',styleSpec:{palette:'muted ochre, honey, moss and warm cream, following the setting',technique:`hand-painted gouache with pencil hatching and visible grain, ${tone} tone, ${setting.label} staging`,characters:[],locations:[]},scenes};
 }
 export async function runMockTask(task,input){validateAIInput(task,input);const result=task==='interview'?mockInterview(input):task==='event'?mockEvent(input):task==='archivist'?mockArchivist(input):task==='editor'?mockEditor(input):mockVideo(input);return {provider:'mock',model:null,result:validateAIResult(task,result,input.answers)};}
 const ARCHIVIST_CUES=[['Music memories',/\b(concert|music|song|band|gig)\b/i],['Moving and arrival',/\b(moved|moving|arrived|new city|new country|abroad)\b/i],['People',/\b(sister|brother|mother|father|friend|grandmother|grandfather|partner)\b/i]];

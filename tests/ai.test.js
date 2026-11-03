@@ -4,7 +4,7 @@ import {exampleProject,newProject,addAnswer,reviseAnswer,setInterviewer,setRevie
 import {witnessAI,projectInput,aiStatus,clearAIStatusCache} from '../web/ai-client.js';
 import {saveEvent,confirmEvent,eventStale,saveVideo,videoStale,saveVerifiedEvent,eventVerification,captureEventGeneration,eventGenerationStale,eventStatus,upsertCollectionEvent,acceptCollectionEvent,entryStatus,findEntryByAnswers} from '../web/event-model.js';
 import {runVerifiedEvent,verifiedEventEnvelope} from '../web/event-verify.js';
-import {mockEventGenerate,mockVerifyEvent,mockEditorGenerate,mockEditorVerify,mockPeriodGenerate} from '../web/mock-ai.js';
+import {mockEventGenerate,mockVerifyEvent,mockEditorGenerate,mockEditorVerify,mockPeriodGenerate,mockVideo} from '../web/mock-ai.js';
 import {validateVerifyOutput,validateAIResult,validateAIInput} from '../web/ai-contracts.js';
 import {buildMetaRequest,runMetaTask,META_NETWORK_ENABLED,META_TEXT_NETWORK_ENABLED,META_SPEECH_NETWORK_ENABLED,isTextLiveEnabled} from '../server/ai/meta.mjs';
 import {handleAI} from '../server/ai/routes.mjs';
@@ -17,7 +17,9 @@ function metaOk(result){return async()=>Response.json({choices:[{message:{conten
 test('live text needs server key and flag, stays mock by default, and keeps the structured contract',async()=>{
  assert.equal(META_NETWORK_ENABLED,false);assert.equal(META_TEXT_NETWORK_ENABLED,true);assert.equal(META_SPEECH_NETWORK_ENABLED,true);
  await assert.rejects(runMetaTask('interview',projectInput(exampleProject()),{}),/server API key is required/);
- await assert.rejects(runMetaTask('video',projectInput(exampleProject()),{apiKey:'x',fetcher:async()=>Response.json({})}),/local mocks/);
+ const vp=await confirmed(),boardInput={...projectInput(vp),event:vp.event,options},board=mockVideo(boardInput);
+ const planned=await runMetaTask('video',boardInput,{apiKey:'x',fetcher:metaOk(board)});assert.equal(planned.provider,'meta');assert.equal(planned.result.scenes.length,board.scenes.length);
+ await assert.rejects(runMetaTask('video',boardInput,{apiKey:'x',fetcher:async()=>Response.json({})}),/incomplete response/);
  const fake=async()=>Response.json({});
  assert.equal(isTextLiveEnabled({},globalThis.fetch),false);
  assert.equal(isTextLiveEnabled(liveEnv,globalThis.fetch),true);
@@ -206,12 +208,14 @@ test('new answers invalidate event confirmation, and event revisions invalidate 
  const p=await confirmed();saveVideo(p,(await witnessAI.video({...projectInput(p),event:p.event,options})).result,options);confirmEvent(p,{title:'A revised event',summary:p.event.summary});assert.equal(videoStale(p),true);
  addAnswer(p,'I remember the next morning too.');assert.equal(eventStale(p),true);await assert.rejects(witnessAI.video({...projectInput(p),event:p.event,options}),/new answers/);
 });
-test('local AI routes stay mock when disabled, and video stays mock when live',async()=>{
+test('local AI routes stay mock when disabled, and video goes live when enabled',async()=>{
  const input=projectInput(exampleProject()),url='http://localhost/api/ai/event';let response=await handleAI(new Request(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)}));assert.equal(response.status,200);assert.equal((await response.json()).provider,'mock');
  response=await handleAI(new Request(url,{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://other.example'},body:JSON.stringify(input)}));assert.equal(response.status,403);
  response=await handleAI(new Request('http://localhost/api/ai-status'),{});assert.equal((await response.json()).textLiveAvailable,false);
- response=await handleAI(new Request('http://localhost/api/ai-status'),liveEnv,async()=>Response.json({}));const status=await response.json();assert.equal(status.textLiveAvailable,true);assert.deepEqual(status.liveTasks,['interview','event','archivist','editor','period']);
- const p=await confirmed();response=await handleAI(new Request('http://localhost/api/ai/video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...projectInput(p),event:p.event,options})}),liveEnv,async()=>{throw Error('video must not call Meta');});assert.equal(response.status,200);assert.equal((await response.json()).provider,'mock');
+ response=await handleAI(new Request('http://localhost/api/ai-status'),liveEnv,async()=>Response.json({}));const status=await response.json();assert.equal(status.textLiveAvailable,true);assert.deepEqual(status.liveTasks,['interview','event','archivist','editor','period','discovery','video']);
+ const p=await confirmed(),vinput={...projectInput(p),event:p.event,options};
+ response=await handleAI(new Request('http://localhost/api/ai/video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(vinput)}),{},async()=>{throw Error('video must stay local when disabled');});assert.equal(response.status,200);assert.equal((await response.json()).provider,'mock');
+ response=await handleAI(new Request('http://localhost/api/ai/video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(vinput)}),liveEnv,metaOk(mockVideo(vinput)));assert.equal(response.status,200);const planned=await response.json();assert.equal(planned.provider,'meta');assert.ok(planned.result.scenes.length>=4&&planned.result.scenes.length<=6);assert.ok(planned.result.styleSpec);
  const bad=(await witnessAI.video({...projectInput(p),event:p.event,options})).result;bad.scenes[0].sourceRefs[0].revision=99;assert.throws(()=>saveVideo(p,bad,options),/outdated/);
 });
 test('live interview dispatch validates sources and keeps answers on provider failures',async()=>{

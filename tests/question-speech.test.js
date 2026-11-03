@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createQuestionSpeech} from '../web/question-speech.js';
+import {createQuestionSpeech,PREVIEW_TEXT} from '../web/question-speech.js';
 
 function fixture(saved){
  const local={voiceURI:'local-en',name:'English device voice',lang:'en-US',localService:true,default:true};
@@ -22,7 +22,7 @@ test('read-aloud is opt-in, uses an installed English voice, and persists prefer
  f.speech.configure({enabled:true,rate:0.9});f.speech.read();
  assert.equal(f.calls[0].text,f.target.text);assert.equal(f.calls[0].voice,f.local);assert.equal(f.calls[0].rate,0.9);
  const saved=JSON.parse(f.values.get('witness.question-speech.v1'));
- assert.deepEqual(saved,{enabled:true,voiceURI:'',rate:0.9});
+ assert.deepEqual(saved,{enabled:true,voiceURI:'',voiceName:'',rate:0.9});
  assert.equal(JSON.stringify(saved).includes(f.target.text),false);
 });
 
@@ -66,6 +66,55 @@ test('handles voices arriving late, unavailable speech, and blocked browser play
  f.speech.read();assert.equal(f.calls.length,2);
  const unavailable=createQuestionSpeech();unavailable.setTarget(f.target);
  assert.equal(unavailable.snapshot().supported,false);assert.equal(unavailable.read(),false);
+});
+
+test('novelty voices stay out of the main list but remain choosable',()=>{
+ const f=fixture();
+ const bells={voiceURI:'bells',name:'Bells',lang:'en-US',localService:true};
+ const boing={voiceURI:'boing',name:'Boing',lang:'en-US',localService:true};
+ const bubbles={voiceURI:'bubbles',name:'Bubbles',lang:'en-US',localService:true};
+ f.setVoices([f.local,bells,boing,bubbles]);
+ const snap=f.speech.snapshot();
+ assert.deepEqual(snap.voices,[f.local]);
+ assert.deepEqual(snap.otherVoices,[bells,boing,bubbles]);
+ f.speech.setTarget(f.target);f.speech.configure({enabled:true,voiceURI:'bells'});
+ f.speech.read();assert.equal(f.calls[0].voice,bells);
+});
+
+test('preview speaks a fixed sample without changing saved voice or speed',()=>{
+ const f=fixture();f.speech.setTarget(f.target);
+ f.speech.configure({enabled:true,rate:1.1});
+ assert.equal(f.speech.preview('local-en'),true);
+ assert.equal(f.calls[0].text,PREVIEW_TEXT);
+ assert.equal(f.calls[0].voice,f.local);assert.equal(f.calls[0].rate,1.1);
+ assert.equal(f.speech.snapshot().previewing,true);
+ assert.deepEqual(JSON.parse(f.values.get('witness.question-speech.v1')),{enabled:true,voiceURI:'',voiceName:'',rate:1.1});
+ f.calls[0].onend();assert.equal(f.speech.snapshot().previewing,false);
+ assert.equal(f.speech.snapshot().speaking,false);
+ f.speech.preview('unknown-voice');assert.equal(f.calls[1].voice,f.local);
+ const unavailable=createQuestionSpeech();
+ assert.equal(unavailable.preview('local-en'),false);
+});
+
+test('stop interrupts a preview like any other speech',()=>{
+ const f=fixture();f.speech.setTarget(f.target);f.speech.configure({enabled:true});
+ f.speech.preview('local-en');assert.equal(f.speech.snapshot().speaking,true);
+ f.speech.stop();
+ assert.equal(f.speech.snapshot().speaking,false);
+ assert.equal(f.speech.snapshot().previewing,false);
+ assert.ok(f.cancels>=1);
+});
+
+test('a saved voice that vanished is explained with the fallback on offer',()=>{
+ const f=fixture({enabled:true,voiceURI:'gone',voiceName:'Old Voice',rate:1});
+ f.speech.setTarget(f.target);
+ const notice=f.speech.snapshot().notice;
+ assert.match(notice,/Old Voice/);assert.match(notice,/not available/);
+ assert.match(notice,/English device voice/);
+ f.speech.read();assert.equal(f.calls[0].voice,f.local);
+ f.speech.configure({voiceURI:'local-en'});
+ assert.equal(f.speech.snapshot().notice,'');
+ assert.equal(f.speech.snapshot().voiceName,'English device voice');
 });
 
 test('unavailable preference storage never prevents reading',()=>{

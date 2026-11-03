@@ -1,6 +1,3 @@
-muse: local session messaging disabled: session logging is required
-muse: workspace root: /Users/zhanylturtemirova/Documents/funds and grands/witness-meta-hackathon (cwd default)
-muse: workspace trust: trusted source=user-config
 ## Witness redesign brief
 
 Goal: replace generic slogans and decoration with a calm tool that does four things well: ask one good question, keep what was said, help shape it, let the reader return.

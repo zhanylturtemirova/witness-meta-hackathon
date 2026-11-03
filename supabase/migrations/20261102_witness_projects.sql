@@ -107,10 +107,13 @@ $$;
 
 -- Table access is owner-only via RLS above; grant the table operations
 -- explicitly to authenticated and nothing to anonymous callers.
-revoke all on table public.witness_projects from public, anon;
+-- Supabase default privileges also grant directly to anon/authenticated,
+-- so the revoke names all three roles before the narrow re-grant.
+revoke all on table public.witness_projects from public, anon, authenticated;
 grant select, insert, update, delete on table public.witness_projects to authenticated;
 
 -- RPC runs as the caller (security invoker) under the same RLS policies.
--- Revoke execute from public/anon first, then grant to authenticated only.
-revoke all on function public.witness_save_project(uuid, jsonb, integer) from public, anon;
+-- Revoke execute from public/anon/authenticated first, then grant to
+-- authenticated only.
+revoke all on function public.witness_save_project(uuid, jsonb, integer) from public, anon, authenticated;
 grant execute on function public.witness_save_project(uuid, jsonb, integer) to authenticated;

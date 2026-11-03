@@ -1,0 +1,12 @@
+# Supabase functions used by Witness Web Push. The user-facing function
+# keeps platform JWT verification on; the scheduler-only function accepts
+# the server-only scheduler secret instead (pg_cron cannot mint a user
+# JWT), so verification is off for THAT function alone. Never disable
+# authentication broadly: witness-push-send rejects everything except the
+# exact PUSH_SCHEDULER_SECRET on the `apikey` header.
+
+[functions.witness-push]
+verify_jwt = true
+
+[functions.witness-push-send]
+verify_jwt = false

@@ -1,5 +1,5 @@
 import {runMockTask,mockEventGenerate,mockEventVerify,mockEditorGenerate,mockEditorVerify,mockPeriodGenerate,mockPeriodVerify} from './mock-ai.js';
-import {validateAIResult,validateVerifyOutput} from './ai-contracts.js';
+import {validateAIResult,validateVerifyOutput,validateStoryboard} from './ai-contracts.js';
 import {runVerifiedEvent,verifiedEventEnvelope} from './event-verify.js';
 // Capability detection decides the automatic provider. A missing or mock status uses
 // local mocks automatically. A failed live generation never falls back silently:
@@ -17,7 +17,7 @@ export async function aiStatus(force=false){
   if(!res.ok)throw Error();
   const data=await res.json();
   const hasTasks=Array.isArray(data.liveTasks);
-  const liveTasks=hasTasks?data.liveTasks.filter(t=>t==='interview'||t==='event'||t==='archivist'||t==='editor'||t==='period'):[];
+  const liveTasks=hasTasks?data.liveTasks.filter(t=>t==='interview'||t==='event'||t==='archivist'||t==='editor'||t==='period'||t==='discovery'||t==='video'):[];
   const flagged=data.textLiveAvailable===true||data.metaRequestsEnabled===true;
   const liveAvailable=flagged&&(hasTasks?liveTasks.length>0:true);
   statusCache={provider:liveAvailable?'meta':'mock',textLiveAvailable:liveAvailable,liveTasks:hasTasks?liveTasks:(liveAvailable?['interview','event']:[]),model:'muse-spark-1.3'};
@@ -126,7 +126,9 @@ export const witnessAI={
  async period(input,{provider='auto',timeoutMs,signal}={}){
   return loopTask('period',input,{provider,timeoutMs,signal},mockPeriod);
  },
- // Video storyboards stay mock-only in this preview, even when interview/event are live.
- async video(input){return runMockTask('video',input);},
+ async video(input,{provider='auto',timeoutMs,signal}={}){
+  const out=await singleTask('video',input,{provider,timeoutMs,signal});
+  return {...out,result:validateStoryboard(out.result,input.answers)};
+ },
 };
 export function projectInput(project){return {title:project.title,topicId:project.topicId,questionIndex:project.questionIndex,answers:project.answers.map(({id,revision,text,question,createdAt})=>({id,revision,text,question,recordedAt:Number.isFinite(createdAt)?new Date(createdAt).toISOString().slice(0,10):null})),askedIntents:[...project.answers.map(a=>a.intent),...(project.skippedIntents||[])].filter(Boolean)};}

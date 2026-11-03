@@ -8,9 +8,10 @@ describe the current code; items marked Needed are gaps to close.
 - Now: `npm run dev` builds `dist/` from `web/` and serves it with `/api/`
   on `http://127.0.0.1:4173`. `npm run build` produces the static `dist/`
   Site, which runs without a backend and stays on mocks. Requires Node 22+ (matching `engines` in package.json).
-- Needed: no installer, auto-updater, or packaged app. No PWA manifest or
-  service worker, so there is no install prompt and no offline page beyond
-  what the browser caches.
+- Now: PWA manifest (`web/manifest.webmanifest`) and service worker
+  (`web/sw.js`) are implemented and covered by offline tests: the installed
+  shell opens offline and updates wait for an explicit activation message.
+- Needed: no installer, auto-updater, or packaged app beyond the PWA.
 
 ## Offline drafts
 
@@ -21,8 +22,9 @@ describe the current code; items marked Needed are gaps to close.
   bytes or scene image bytes, which live only in IndexedDB. Static
   responses carry `Cache-Control: no-store`, so reloads always fetch fresh
   code when the server runs.
-- Needed: no service worker, so the app shell itself does not load offline.
-  Offline drafts survive only in a browser that already has the page open.
+- Now: the app shell loads offline once installed (service worker cache,
+  tested); offline drafts additionally survive in a browser that already has
+  the page open.
 
 ## Safe updates
 

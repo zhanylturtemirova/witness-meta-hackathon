@@ -4,6 +4,19 @@ import {entryStatus} from './event-model.js';
 // Unrecognised or missing locations remain off the globe.
 const CITIES=[['leeds',-1.55,53.80],['manchester',-2.24,53.48],['bristol',-2.59,51.45],['bishkek',74.60,42.87],['vienna',16.37,48.21],['berlin',13.4,52.52],['london',-.12,51.51],['lisbon',-9.14,38.72],['porto',-8.61,41.15],['paris',2.35,48.86],['gdansk',18.65,54.35],['cork',-8.47,51.9],['toronto',-79.38,43.65],['montreal',-73.57,45.5],['tbilisi',44.79,41.72],['tokyo',139.69,35.68],['osaka',135.5,34.69],['new york',-74.01,40.71]];
 const normal=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+// Explicit city picker options for publishing and matching. Labels only
+// capitalise the gazetteer names above — no countries are guessed and no
+// external geocoding is used.
+export const CITY_OPTIONS = CITIES.map(([name, lon, lat]) => ({
+  name,
+  label: name.split(' ').map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' '),
+  lon,
+  lat,
+}));
+export function cityOption(location) {
+  const city = normal(location).split(',')[0].trim();
+  return CITY_OPTIONS.find((c) => c.name === city) || null;
+}
 export function eventCoordinates(location){
  const city=normal(location).split(',')[0].trim();
  const entry=CITIES.find(([name])=>name===city);

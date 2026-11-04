@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newProject,addAnswer,reviseAnswer,createStory,isStale,refreshPassage,exportStory,nextQuestion,validProject,setReviewDraft,reviewDraft,reviewText,addRecordingMeta,getRecordingMeta,removeRecordingMeta,setRecordingTranscript,MAX_RECORDINGS_PER_STORY,resumePoint,passageProposal,dismissProposal,eventSummary,needsContinue,captureEditorBinding,editorBindingFresh,acceptEditorProposal} from '../web/domain.js';
+import {newProject,addAnswer,reviseAnswer,createStory,isStale,refreshPassage,exportStory,nextQuestion,validProject,setReviewDraft,reviewDraft,reviewText,questionIdentity,recordingForCurrentQuestion,addRecordingMeta,getRecordingMeta,removeRecordingMeta,setRecordingTranscript,MAX_RECORDINGS_PER_STORY,resumePoint,passageProposal,dismissProposal,eventSummary,needsContinue,captureEditorBinding,editorBindingFresh,acceptEditorProposal} from '../web/domain.js';
 test('an answer edit preserves the source used by an existing passage until explicitly refreshed',()=>{
  const p=newProject('turning-point');const a=addAnswer(p,'I moved around 2018, I think.');createStory(p);const s=p.story.passages[0];
  reviseAnswer(p,a.id,'I moved in 2019.');
@@ -145,4 +145,18 @@ test('editing the passage while a proposal is pending invalidates it',()=>{
 test('editor bindings reject answer objects passed instead of source references',()=>{
  const p=newProject('small-moment');addAnswer(p,'A quiet morning.');createStory(p);
  assert.throws(()=>captureEditorBinding(p,p.story.passages[0].id,p.answers),/source answers/);
+});
+test('an empty submit finds the current recording and preserves it on failure',()=>{
+ const p=newProject('small-moment');
+ assert.equal(recordingForCurrentQuestion(p),null);
+ addRecordingMeta(p,{id:'r-other',question:'Old question.',questionKey:'["old"]',durationSec:3});
+ assert.equal(recordingForCurrentQuestion(p),null);
+ const rec=addRecordingMeta(p,{id:'r-now',question:'Q?',questionKey:questionIdentity(p),durationSec:9.6});
+ assert.equal(recordingForCurrentQuestion(p).id,'r-now');
+ const before=JSON.stringify(p.recordings);
+ assert.throws(()=>addAnswer(p,'   '),/Write an answer first/);
+ assert.equal(JSON.stringify(p.recordings),before);
+ assert.equal(p.answers.length,0);
+ setRecordingTranscript(p,'r-now','A draft transcript.');
+ assert.equal(recordingForCurrentQuestion(p).transcript,'A draft transcript.');
 });

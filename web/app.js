@@ -14,7 +14,7 @@ import {WEEK_TIMEZONES,deviceTimeZone,validTimeZone,weekRangeLabel,entryDateLabe
 import {questionSpeechMarkup,mountQuestionSpeech,unmountQuestionSpeech} from './question-speech.js';
 import {storyAudioMarkup,mountStoryAudio,unmountStoryAudio} from './story-audio.js';
 import {mediaDelete,MEDIA_RECORDINGS,MEDIA_IMAGES,MEDIA_FILMS} from './media-store.js';
-import {TOPICS,newProject,nextQuestion,addAnswer,reviseAnswer,hasUncertainty,createStory,isStale,refreshPassage,exportStory,exampleProject,validProject,setReviewDraft,reviewText,setInterviewer,resumePoint,passageProposal,dismissProposal,homeQuestion,needsContinue,captureEditorBinding,editorBindingFresh,acceptEditorProposal,STARTER_CHOICES,starterChoice} from './domain.js';
+import {TOPICS,newProject,nextQuestion,addAnswer,reviseAnswer,hasUncertainty,createStory,isStale,refreshPassage,exportStory,exampleProject,validProject,setReviewDraft,reviewText,setInterviewer,resumePoint,passageProposal,dismissProposal,homeQuestion,needsContinue,captureEditorBinding,editorBindingFresh,acceptEditorProposal,STARTER_CHOICES,starterChoice,recordingForCurrentQuestion} from './domain.js';
 import {SAVED_KEY,LIKES_KEY,addQuote,removeQuote,purgeProjectQuotes,toggleLike,isLiked,loadCollection,storeCollection,validateStorySelection,cleanSelectionText} from './saved.js';
 import {createAccount,startGoogleSignIn,isOAuthReturn,refreshAccount,signOutAccount,noteAccountSwitch,listCloud} from './auth.js';
 import {accountDialogHtml,accountNavLabel} from './account.js';
@@ -1197,7 +1197,7 @@ case'interview-mock':if(aiMode.hosted)break;if(interviewFlow.phase!=='error')bre
  }}catch(err){toast(err.message);}
 });
 document.addEventListener('submit',async e=>{
- if(e.target.id==='answer-form'){e.preventDefault();if(interviewFlow.phase==='pending')return;if(voiceBusy()){toast('Stop recording before continuing.');return;}const p=current(),text=new FormData(e.target).get('answer');try{addAnswer(p,text);}catch(err){toast(err.message);return;}leaveVoice();save();await requestInterview(p,'auto');}
+ if(e.target.id==='answer-form'){e.preventDefault();if(interviewFlow.phase==='pending')return;if(voiceBusy()){toast('Stop recording before continuing.');return;}const p=current(),text=new FormData(e.target).get('answer');try{addAnswer(p,text);}catch(err){if(!String(text||'').trim()){const rec=recordingForCurrentQuestion(p);if(rec&&!rec.transcript){toast('Transcribe your recording and review the text before continuing — the recording stays saved.');return;}if(rec){toast('Review your transcript and add it to your answer — the recording stays saved.');return;}}toast(err.message);return;}leaveVoice();save();await requestInterview(p,'auto');}
  else if(e.target.id==='collection-event-form'){e.preventDefault();const p=current(),f=Object.fromEntries(new FormData(e.target));try{confirmCollectionEvent(p,e.target.dataset.entry,f,f.capture);save();render();toast('Event confirmed. It is now available in Connect.');}catch(err){toast(err.message);}}
 
  else if(e.target.id==='share-form'){e.preventDefault();submitShareForm(e.target);}

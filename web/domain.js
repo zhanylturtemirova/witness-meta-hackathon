@@ -45,6 +45,10 @@ export function nextQuestion(p) {
 export function questionIdentity(p) {
   return JSON.stringify([(p.answers||[]).length,p.questionIndex||0,p.interviewer?.question||null,p.interviewer?.intent||null,p.interviewer?.promptId||null]);
 }
+export function recordingForCurrentQuestion(p) {
+  const key = questionIdentity(p);
+  return (p.recordings || []).find(r => r && r.questionKey === key) || null;
+}
 export function addAnswer(p,text) {
   if (!text.trim()) throw new Error('Write an answer first.');
   if(text.length>20000) throw new Error('Please keep each answer under 20,000 characters.');

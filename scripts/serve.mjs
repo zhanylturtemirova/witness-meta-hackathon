@@ -6,7 +6,7 @@ import {Readable} from 'node:stream';
 import {existsSync} from 'node:fs';
 import {handleSpeech} from '../server/transcribe.mjs';
 import {handleAI} from '../server/ai/routes.mjs';
-import {isHostAllowed,serverListen,healthBody} from '../server/config.mjs';
+import {apiRequestUrl,serverListen,healthBody} from '../server/config.mjs';
 if(existsSync('.env'))process.loadEnvFile('.env');
 const root = path.resolve('dist');
 const types = {'.webmanifest':'application/manifest+json','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg'};
@@ -17,9 +17,10 @@ const server = http.createServer(async (req,res) => {
       res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(healthBody(process.env)));return;
     }
     if(url.pathname.startsWith('/api/')){
-      if(!isHostAllowed(url.hostname,process.env)){res.writeHead(403);res.end();return;}
+      const apiUrl=apiRequestUrl(req.url,req.headers.host,process.env);
+      if(!apiUrl){res.writeHead(403);res.end();return;}
       const abort=new AbortController();req.on('aborted',()=>abort.abort());res.on('close',()=>{if(!res.writableEnded)abort.abort();});
-      const request=new Request(url,{method:req.method,headers:req.headers,signal:abort.signal,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});
+      const request=new Request(apiUrl,{method:req.method,headers:req.headers,signal:abort.signal,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});
       const response=await handleAI(request,process.env) || await handleSpeech(request,process.env);
       if(res.writableEnded||res.destroyed)return;
       if(response){res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;}

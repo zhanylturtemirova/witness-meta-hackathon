@@ -41,3 +41,21 @@ export function serverListen(env = {}) {
 export function healthBody(env = {}) {
   return {ok: true, mode: isHosted(env) ? 'hosted' : 'local'};
 }
+// Validated request URL for API routes, or null when the host is refused.
+// The incoming host is checked first; hosted mode then anchors the URL to
+// the configured PUBLIC_ORIGIN (https on Render) so browser Origin checks
+// compare against the real public origin. Local mode keeps plain
+// http://host behaviour. Forwarded headers are never read.
+export function apiRequestUrl(rawUrl, hostHeader, env = {}) {
+  let hostname = '';
+  try {
+    hostname = new URL(rawUrl, 'http://' + hostHeader).hostname;
+  } catch { return null; }
+  if (!isHostAllowed(hostname, env)) return null;
+  if (isHosted(env)) {
+    const origin = publicOrigin(env);
+    if (!origin) return null;
+    return new URL(rawUrl, origin);
+  }
+  return new URL(rawUrl, 'http://' + hostHeader);
+}

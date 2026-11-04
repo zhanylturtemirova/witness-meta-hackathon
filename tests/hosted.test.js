@@ -1,6 +1,6 @@
 import test, {beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
-import {isHosted, publicOrigin, isHostAllowed, serverListen, healthBody} from '../server/config.mjs';
+import {isHosted, publicOrigin, isHostAllowed, serverListen, healthBody, apiRequestUrl} from '../server/config.mjs';
 import {requireUser, __resetAuthForTests} from '../server/auth.mjs';
 import {spendGeneration, acquireSlot, budgetConfig, __resetBudgetForTests} from '../server/ai/budget.mjs';
 import {handleAI} from '../server/ai/routes.mjs';
@@ -50,6 +50,50 @@ test('hosted endpoints require a verified session; local mode skips auth', async
   assert.equal(calls, 1);
   await assert.rejects(requireUser(req({Authorization: 'Bearer uncached-token'}), {...HOSTED, SUPABASE_URL: ''}), /not configured/);
   await assert.rejects(requireUser(req({Authorization: 'Bearer fresh-token'}), HOSTED, {getUser: async () => { throw Error('fetch failed'); }}), /could not be reached/);
+});
+test('hosted API URLs anchor to the configured origin after the host check', () => {
+  const https = apiRequestUrl('/api/transcribe?language=English', 'witness.example', HOSTED);
+  assert.ok(https);
+  assert.equal(https.href, 'https://witness.example/api/transcribe?language=English');
+  assert.equal(https.origin, 'https://witness.example');
+  assert.equal(apiRequestUrl('/api/transcribe', 'other.example', HOSTED), null);
+  assert.equal(apiRequestUrl('/api/ai/interview', '127.0.0.1', HOSTED), null);
+  assert.equal(apiRequestUrl('/api/ai/interview', 'witness.example', {...HOSTED, PUBLIC_ORIGIN: 'not a url'}), null);
+  const local = apiRequestUrl('/api/ai/interview', '127.0.0.1:4173', {});
+  assert.ok(local);
+  assert.equal(local.href, 'http://127.0.0.1:4173/api/ai/interview');
+  assert.equal(apiRequestUrl('/api/ai/interview', 'evil.example', {}), null);
+  assert.equal(apiRequestUrl('http://[::1', '127.0.0.1', {}), null);
+});
+test('legitimate hosted HTTPS passes origin checks on speech and text endpoints', async () => {
+  const p = exampleProject(), input = projectInput(p);
+  const good = {question: 'What stayed with you from that night?', intent: 'meaning', sourceRefs: [{answerId: p.answers[2].id, revision: 1}], enoughMaterial: true, suggestedNextStep: 'review_event'};
+  const metaInterview = async () => Response.json({choices: [{message: {content: JSON.stringify(good)}, finish_reason: 'stop'}]});
+  const httpsInterview = apiRequestUrl('/api/ai/interview', 'witness.example', HOSTED);
+  let res = await handleAI(new Request(httpsInterview, {method: 'POST', headers: {...authed, Origin: 'https://witness.example'}, body: JSON.stringify(input)}), HOSTED, metaInterview, {getUser});
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).provider, 'meta');
+  const wav = toWav([new Float32Array(2400)], 24000);
+  const httpsSpeech = apiRequestUrl('/api/transcribe?language=English', 'witness.example', HOSTED);
+  res = await handleSpeech(new Request(httpsSpeech, {method: 'POST', headers: {...authed, 'Content-Type': 'audio/wav', Origin: 'https://witness.example'}, body: wav}), HOSTED, async () => Response.json({transcript: 'A memory.'}), {getUser});
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).transcript, 'A memory.');
+});
+test('foreign origins still fail on hosted HTTPS, and local requests still work', async () => {
+  const p = exampleProject(), input = projectInput(p);
+  const metaInterview = async () => Response.json({choices: [{message: {content: JSON.stringify({question: 'Q?', intent: 'meaning', sourceRefs: [], enoughMaterial: true, suggestedNextStep: 'review_event'})}, finish_reason: 'stop'}]});
+  const httpsInterview = apiRequestUrl('/api/ai/interview', 'witness.example', HOSTED);
+  let res = await handleAI(new Request(httpsInterview, {method: 'POST', headers: {...authed, Origin: 'https://evil.example'}, body: JSON.stringify(input)}), HOSTED, metaInterview, {getUser});
+  assert.equal(res.status, 403);
+  const wav = toWav([new Float32Array(2400)], 24000);
+  const httpsSpeech = apiRequestUrl('/api/transcribe?language=English', 'witness.example', HOSTED);
+  res = await handleSpeech(new Request(httpsSpeech, {method: 'POST', headers: {...authed, 'Content-Type': 'audio/wav', Origin: 'https://evil.example'}, body: wav}), HOSTED, async () => Response.json({transcript: 'x'}), {getUser});
+  assert.equal(res.status, 403);
+  assert.match((await res.json()).error, /Open Witness in this browser/);
+  const localUrl = apiRequestUrl('/api/ai/interview', '127.0.0.1:4173', {});
+  res = await handleAI(new Request(localUrl, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(input)}), {}, metaInterview);
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).provider, 'mock');
 });
 test('budget enforces per-user, concurrency, and global caps', () => {
   assert.deepEqual(budgetConfig({}), {userHourlyLimit: 60, maxConcurrent: 1, globalCap: 1000});

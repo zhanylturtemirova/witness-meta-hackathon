@@ -768,12 +768,12 @@ test('unmapped upstream failures keep a short message and log task, stage, and s
  const lines=[],realError=console.error;
  console.error=(...a)=>{lines.push(a.join(' '));};
  try{
-  for(const status of [400,404,500,503]){
+  for(const status of [400,500,503]){
    try{await runMetaTask('event',input,{apiKey:'k',fetcher:async()=>Response.json({message:'x'},{status})});assert.fail('expected throw '+status);}
    catch(err){assert.equal(err.message,'Meta could not complete this step. Your answers are still saved.');assert.equal(err.status,status>=500?502:status);}
   }
-  assert.equal(lines.length,4);
-  assert.ok(lines.every(l=>/^.*meta event\.request upstream=(400|404|500|503)$/.test(l)),lines.join('\n'));
+  assert.equal(lines.length,3);
+  assert.ok(lines.every(l=>/^.*meta event\.request upstream=(400|500|503)$/.test(l)),lines.join('\n'));
   const answerWords=input.answers.flatMap(a=>a.text.split(/\s+/).filter(w=>w.length>4));
   for(const w of answerWords)assert.ok(lines.every(l=>!l.includes(w)),'log leaks answer text: '+w);
   assert.ok(lines.every(l=>!l.includes('test-key')&&!l.includes('Bearer')),'log leaks credentials');
@@ -789,4 +789,41 @@ test('verification-stage upstream failures name the check, not the draft',async(
   await assert.rejects(runMetaTask('verify',{title:input.title,answers:input.answers,candidate},{apiKey:'k',fetcher:async()=>Response.json({message:'x'},{status:503})}),/could not check the draft/);
   assert.match(line,/meta verify\.verify upstream=503/);
  }finally{console.error=realError;}
+});
+test('a 404 from Meta names the model side and logs only safe diagnostics',async()=>{
+ const p=exampleProject(),input=projectInput(p);
+ const answerWords=input.answers.flatMap(a=>a.text.split(/\s+/).filter(w=>w.length>4));
+ const envelope={error:{message:'The model `muse-spark-1.3` does not exist for team `t_456`. Echo: '+answerWords.join(' '),type:'not_found_error',code:'model_not_found',param:'model'}};
+ const lines=[],realError=console.error;
+ console.error=(...a)=>{lines.push(a.join(' '));};
+ try{
+  try{
+   await runMetaTask('event',input,{apiKey:'k',fetcher:async()=>new Response(JSON.stringify(envelope),{status:404,headers:{'x-request-id':'req_diag_789','Content-Type':'application/json'}})});
+   assert.fail('expected throw');
+  }catch(err){assert.equal(err.message,'Meta could not find the requested model. Your answers are still saved.');assert.equal(err.status,404);}
+  assert.equal(lines.length,1);
+  assert.match(lines[0],/meta event\.request upstream=404 code=model_not_found type=not_found_error param=model requestId=req_diag_789/);
+  assert.ok(!lines[0].includes('does not exist'),'provider message is never logged');
+  for(const w of answerWords)assert.ok(!lines[0].includes(w),'log leaks answer text: '+w);
+ }finally{console.error=realError;}
+});
+test('malformed or hostile error bodies cannot leak or crash diagnostics',async()=>{
+ const p=exampleProject(),input=projectInput(p);
+ const {upstreamDiagnostics,formatUpstreamLog}=await import('../server/ai/meta.mjs');
+ const cases=[
+  new Response('not json{{{',{status:500}),
+  new Response('',{status:502}),
+  new Response(JSON.stringify({error:'a string, not an object'}),{status:500}),
+  new Response(JSON.stringify({error:{code:404,type:null,param:['x'],message:'m'}}),{status:500}),
+  new Response(JSON.stringify({error:{code:'a'.repeat(500)+'\nINJECTED',type:'t',param:'p'}}),{status:500}),
+ ];
+ for(const res of cases){
+  const d=await upstreamDiagnostics(res);
+  const line=formatUpstreamLog('event','request',d);
+  assert.match(line,/^\[witness\] meta event\.request upstream=5\d\d( code=\S+)?( type=\S+)?( param=\S+)?( requestId=\S+)?$/);
+  assert.ok(!line.includes('INJECTED')&&!line.includes('\n'));
+ }
+ const empty=await upstreamDiagnostics(new Response('nope',{status:503}));
+ assert.deepEqual(empty,{status:503,code:'',type:'',param:'',requestId:''});
+ assert.equal(formatUpstreamLog('verify','verify',empty),'[witness] meta verify.verify upstream=503');
 });

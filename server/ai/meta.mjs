@@ -26,6 +26,39 @@ export function buildMetaRequest(task,input){
 function upstreamError(message,status=502){
  const err=Error(message);err.status=status;return err;
 }
+const DIAG_MAX = 120;
+function diagField(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[\r\n]+/g, ' ').trim().slice(0, DIAG_MAX);
+}
+// Safe failure diagnostics from a Meta error response: upstream status,
+// error code/type/param, and the provider request id only. Never the
+// message, raw body, other headers, keys, answers, or prompts.
+export async function upstreamDiagnostics(response) {
+  const out = {status: response.status, code: '', type: '', param: '', requestId: ''};
+  try {
+    out.requestId = diagField(response.headers?.get?.('x-request-id') || '');
+  } catch {}
+  try {
+    const text = await response.text();
+    const parsed = JSON.parse(String(text).slice(0, 4096));
+    const err = parsed && typeof parsed === 'object' ? parsed.error : null;
+    if (err && typeof err === 'object') {
+      out.code = diagField(err.code);
+      out.type = diagField(err.type);
+      out.param = diagField(err.param);
+    }
+  } catch {}
+  return out;
+}
+export function formatUpstreamLog(task, stage, diag) {
+  const parts = [`[witness] meta ${task}.${stage} upstream=${diag.status}`];
+  if (diag.code) parts.push(`code=${diag.code}`);
+  if (diag.type) parts.push(`type=${diag.type}`);
+  if (diag.param) parts.push(`param=${diag.param}`);
+  if (diag.requestId) parts.push(`requestId=${diag.requestId}`);
+  return parts.join(' ');
+}
 export async function runMetaTask(task,input,{apiKey,fetcher=globalThis.fetch,timeoutMs=60000,signal,validateResult=true,stage}={}){
  if(!META_TEXT_NETWORK_ENABLED&&fetcher===globalThis.fetch)throw Error('Meta requests are paused. Witness is using local mocks.');
  if(!apiKey)throw Error('A server API key is required.');
@@ -39,12 +72,15 @@ export async function runMetaTask(task,input,{apiKey,fetcher=globalThis.fetch,ti
   throw upstreamError('The Meta service could not be reached. Your answers are still saved; you can retry.');
  }
  if(!response.ok){
-  // Safe observability: task, stage, and HTTP status only. Never answers,
-  // prompts, tokens, or keys. Distinguishes generation failures from
-  // verification failures in server logs.
-  try{console.error(`[witness] meta ${task}.${stageName} upstream=${response.status}`);}catch{}
+  // Safe observability: task, stage, status, error code/type/param, and
+  // provider request id only. Never messages, bodies, keys, answers, or
+  // prompts. Distinguishes generation failures from verification failures.
+  try{console.error(formatUpstreamLog(task,stageName,await upstreamDiagnostics(response)));}catch{}
   const messages={401:'The server API key was not accepted. Your answers are still saved.',402:'Meta requires billing to be set up. Your answers are still saved.',403:'This Meta account does not have access to this model. Your answers are still saved.',429:'Meta is busy or the account limit was reached. Your answers are still saved; wait a moment before retrying.'};
   if(messages[response.status])throw upstreamError(messages[response.status],response.status);
+  // Per Meta's docs a 404 means the model or path is wrong; our path is the
+  // documented one, so this names the model side without guessing further.
+  if(response.status===404)throw upstreamError('Meta could not find the requested model. Your answers are still saved.',404);
   throw upstreamError(stageName==='verify'?'Meta could not check the draft. Your answers are still saved.':'Meta could not complete this step. Your answers are still saved.',response.status>=500?502:response.status);
  }
  let payload;

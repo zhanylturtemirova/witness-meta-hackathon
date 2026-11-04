@@ -180,6 +180,34 @@ export function homeQuestion(offset=0,now=new Date()) {
   const index=((Math.floor(localMidnight/86400000)+offset)%HOME_QUESTIONS.length+HOME_QUESTIONS.length)%HOME_QUESTIONS.length;
   return HOME_QUESTIONS[index];
 }
+// The starter shown immediately on first visit, with no model request.
+// provider:null keeps it out of every AI label; recording and writing
+// use whatever entry is currently displayed.
+export const HOME_STARTER_QUESTION = "What's a small moment from today you'd like to remember?";
+export function homeStarterEntry() {
+  return {question: HOME_STARTER_QUESTION, topic: 'small-moment', provider: null, model: null, result: null};
+}
+export function homeEntryReady(entry) {
+  return !!(entry && typeof entry.question === 'string' && entry.question.trim());
+}
+// Recent questions for the interviewer so it does not repeat the displayed
+// question or recent generations. Newest last, capped, case-deduped.
+export function homeAvoidQuestions(entry, history) {
+  const seen = new Set(), out = [];
+  const list = [...(Array.isArray(history) ? history : [])];
+  if (entry && typeof entry.question === 'string') list.push(entry.question);
+  for (const q of list) {
+    if (typeof q !== 'string') continue;
+    const key = q.trim().toLowerCase();
+    if (!key || key.length > 600 || seen.has(key)) continue;
+    seen.add(key);
+    out.push(q);
+  }
+  return out.slice(-20);
+}
+export function homeGenerationInput(entry, history) {
+  return {title: 'A new opening question', topicId: 'small-moment', questionIndex: 0, answers: [], askedIntents: [], mode: 'opening', avoidQuestions: homeAvoidQuestions(entry, history)};
+}
 export function exportStory(p) {
   if(!p.story) throw new Error('Create a story first.');
   const notes=p.story.passages.map((s,i)=>`[${i+1}] Answer ${s.sourceId}, revision ${s.sourceRevision}${isStale(p,s)?' — source changed; passage needs review':''}\nQuestion: ${s.question}\nOriginal answer: ${s.sourceText}`);

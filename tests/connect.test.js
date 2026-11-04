@@ -134,7 +134,9 @@ test('Connect correction CSS: real paper, compact heading, tall stage, paper let
  assert.ok(css.includes('warm-paper.png'),'real paper texture is used');
  assert.ok(css.includes('650px'),'paper tiles at about 650px');
  assert.ok(/\.connect-heading h1\{font-size:24px/.test(css),'Connect heading is compact, not a giant hero');
- assert.ok(css.includes('.connect-explorer{grid-template-columns:220px minmax(0,1fr)'),'event list is narrow beside a full-width globe');
+ assert.ok(css.includes('.connect-explorer{grid-template-columns:340px minmax(0,1fr)'),'event panel fits its contents beside a flexible globe');
+ assert.ok(css.includes('.connect-explorer fieldset{min-width:0;max-width:100%'),'panel fieldsets fit the column');
+ assert.ok(!/\.connect-explorer\{[^}]*overflow\s*:\s*hidden/.test(css),'overflow is never hidden to conceal panel contents');
  assert.ok(css.includes('height:clamp(520px,68vh,800px)'),'stage is tall on desktop');
  assert.ok(css.includes('.searching-excerpt::before'),'letter silhouette lives on a background-only layer');
  assert.ok(css.includes('font-style:italic'),'letter quotes are editorial italic');

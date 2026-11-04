@@ -763,3 +763,30 @@ test('a late live response after cancellation is never accepted',async()=>{
   await assert.rejects(pending2,/cancelled/);
  }finally{globalThis.fetch=realFetch;clearAIStatusCache();}
 });
+test('unmapped upstream failures keep a short message and log task, stage, and status only',async()=>{
+ const p=exampleProject(),input=projectInput(p);
+ const lines=[],realError=console.error;
+ console.error=(...a)=>{lines.push(a.join(' '));};
+ try{
+  for(const status of [400,404,500,503]){
+   try{await runMetaTask('event',input,{apiKey:'k',fetcher:async()=>Response.json({message:'x'},{status})});assert.fail('expected throw '+status);}
+   catch(err){assert.equal(err.message,'Meta could not complete this step. Your answers are still saved.');assert.equal(err.status,status>=500?502:status);}
+  }
+  assert.equal(lines.length,4);
+  assert.ok(lines.every(l=>/^.*meta event\.request upstream=(400|404|500|503)$/.test(l)),lines.join('\n'));
+  const answerWords=input.answers.flatMap(a=>a.text.split(/\s+/).filter(w=>w.length>4));
+  for(const w of answerWords)assert.ok(lines.every(l=>!l.includes(w)),'log leaks answer text: '+w);
+  assert.ok(lines.every(l=>!l.includes('test-key')&&!l.includes('Bearer')),'log leaks credentials');
+ }finally{console.error=realError;}
+});
+test('verification-stage upstream failures name the check, not the draft',async()=>{
+ const p=exampleProject(),input=projectInput(p);
+ const refs=input.answers.map(a=>({answerId:a.id,revision:a.revision}));
+ const candidate={title:'A memory',summary:input.answers[0].text,dateText:null,location:null,people:[],themes:[],detailsToConfirm:[],sourceRefs:refs};
+ const realError=console.error;let line='';
+ console.error=(...a)=>{line=a.join(' ');};
+ try{
+  await assert.rejects(runMetaTask('verify',{title:input.title,answers:input.answers,candidate},{apiKey:'k',fetcher:async()=>Response.json({message:'x'},{status:503})}),/could not check the draft/);
+  assert.match(line,/meta verify\.verify upstream=503/);
+ }finally{console.error=realError;}
+});

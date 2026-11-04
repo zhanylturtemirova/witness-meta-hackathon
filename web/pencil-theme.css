@@ -245,8 +245,13 @@ textarea:focus-visible,select:focus-visible,[tabindex]:focus-visible{
 .connect-heading{padding:10px 0 8px;align-items:center}
 .connect-heading h1{font-size:24px;line-height:1.25}
 .connect-heading p{font-size:14px;margin-top:4px}
-.connect-explorer{grid-template-columns:220px minmax(0,1fr);gap:18px}
-.connect-explorer>.event-panel{max-height:640px;overflow:auto}
+.connect-explorer{grid-template-columns:340px minmax(0,1fr);gap:18px}
+.connect-explorer>.event-panel{max-height:640px;overflow:auto;min-width:0}
+/* Panel contents fit the column instead of forcing it wider. */
+.connect-explorer fieldset{min-width:0;max-width:100%;box-sizing:border-box}
+.connect-explorer input,.connect-explorer select,.connect-explorer textarea{max-width:100%;box-sizing:border-box}
+.connect-explorer .connect-event,.connect-explorer .life-event,.connect-explorer .connection-card,.connect-explorer .event-copy{min-width:0;max-width:100%}
+.connect-explorer .event-timeline{min-width:0}
 .globe-panel{background:transparent;border:0;box-shadow:none;color:var(--ink)}
 .globe-stage{height:clamp(520px,68vh,800px);min-height:520px;background:transparent}
 #connect-globe{height:100%}

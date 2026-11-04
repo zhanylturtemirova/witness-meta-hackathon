@@ -26,9 +26,10 @@ export function buildMetaRequest(task,input){
 function upstreamError(message,status=502){
  const err=Error(message);err.status=status;return err;
 }
-export async function runMetaTask(task,input,{apiKey,fetcher=globalThis.fetch,timeoutMs=60000,signal,validateResult=true}={}){
+export async function runMetaTask(task,input,{apiKey,fetcher=globalThis.fetch,timeoutMs=60000,signal,validateResult=true,stage}={}){
  if(!META_TEXT_NETWORK_ENABLED&&fetcher===globalThis.fetch)throw Error('Meta requests are paused. Witness is using local mocks.');
  if(!apiKey)throw Error('A server API key is required.');
+ const stageName=stage||(task==='verify'?'verify':'request');
  const body=buildMetaRequest(task,input);
  let response;
  try{
@@ -38,8 +39,13 @@ export async function runMetaTask(task,input,{apiKey,fetcher=globalThis.fetch,ti
   throw upstreamError('The Meta service could not be reached. Your answers are still saved; you can retry.');
  }
  if(!response.ok){
+  // Safe observability: task, stage, and HTTP status only. Never answers,
+  // prompts, tokens, or keys. Distinguishes generation failures from
+  // verification failures in server logs.
+  try{console.error(`[witness] meta ${task}.${stageName} upstream=${response.status}`);}catch{}
   const messages={401:'The server API key was not accepted. Your answers are still saved.',402:'Meta requires billing to be set up. Your answers are still saved.',403:'This Meta account does not have access to this model. Your answers are still saved.',429:'Meta is busy or the account limit was reached. Your answers are still saved; wait a moment before retrying.'};
-  throw upstreamError(messages[response.status]||'Meta could not complete this step. Your answers are still saved.',response.status>=500?502:response.status);
+  if(messages[response.status])throw upstreamError(messages[response.status],response.status);
+  throw upstreamError(stageName==='verify'?'Meta could not check the draft. Your answers are still saved.':'Meta could not complete this step. Your answers are still saved.',response.status>=500?502:response.status);
  }
  let payload;
  try{payload=await response.json();}catch{throw upstreamError('Meta returned an unreadable response. Your answers are still saved; you can retry.');}

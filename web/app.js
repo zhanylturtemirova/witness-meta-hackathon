@@ -14,7 +14,7 @@ import {WEEK_TIMEZONES,deviceTimeZone,validTimeZone,weekRangeLabel,entryDateLabe
 import {questionSpeechMarkup,mountQuestionSpeech,unmountQuestionSpeech} from './question-speech.js';
 import {storyAudioMarkup,mountStoryAudio,unmountStoryAudio} from './story-audio.js';
 import {mediaDelete,MEDIA_RECORDINGS,MEDIA_IMAGES,MEDIA_FILMS} from './media-store.js';
-import {TOPICS,newProject,nextQuestion,addAnswer,reviseAnswer,hasUncertainty,createStory,isStale,refreshPassage,exportStory,exampleProject,validProject,setReviewDraft,reviewText,setInterviewer,resumePoint,passageProposal,dismissProposal,homeQuestion,needsContinue,captureEditorBinding,editorBindingFresh,acceptEditorProposal,STARTER_CHOICES,starterChoice,recordingForCurrentQuestion} from './domain.js';
+import {TOPICS,newProject,nextQuestion,addAnswer,reviseAnswer,hasUncertainty,createStory,isStale,refreshPassage,exportStory,exampleProject,validProject,setReviewDraft,reviewText,setInterviewer,resumePoint,passageProposal,dismissProposal,homeQuestion,needsContinue,captureEditorBinding,editorBindingFresh,acceptEditorProposal,STARTER_CHOICES,starterChoice,recordingForCurrentQuestion,HOME_STARTER_QUESTION,homeStarterEntry,homeEntryReady,homeGenerationInput,homeAvoidQuestions} from './domain.js';
 import {SAVED_KEY,LIKES_KEY,addQuote,removeQuote,purgeProjectQuotes,toggleLike,isLiked,loadCollection,storeCollection,validateStorySelection,cleanSelectionText} from './saved.js';
 import {createAccount,startGoogleSignIn,isOAuthReturn,refreshAccount,signOutAccount,noteAccountSwitch,listCloud} from './auth.js';
 import {accountDialogHtml,accountNavLabel} from './account.js';
@@ -296,18 +296,18 @@ function collectionCard(p,first){
  return `<article class="memory-card${first?' first':''}"><div><h3>${esc(p.story?.title||p.title)}</h3>${p.example?'<span class="tag">FICTIONAL EXAMPLE</span>':''}<p class="collection-status">${esc(status)}</p>${events}<p class="collection-date">Last touched ${esc(dateLabel(p))}</p></div><div class="memory-card-actions">${mainAction}${(p.events||[]).length?`<button class="button outline" data-action="event-open" data-id="${p.id}">Open in review →</button>`:''}<button class="icon-button" data-action="delete" data-id="${p.id}" aria-label="Delete ${esc(p.story?.title||p.title)}">×</button></div></article>`;
 }
 const HOME_AI_KEY='witness.home-ai.v1';
-let homeAI={entry:null,history:[]},homePending=false,homeError='',homeSeq=0,homeAbort=null;
-try{const h=JSON.parse(localStorage.getItem(HOME_AI_KEY)||'null');if(h&&Array.isArray(h.history)){homeAI.history=h.history.filter(q=>typeof q==='string'&&q.length<=600).slice(-20);if(h.entry?.provider==='meta'&&typeof h.entry.question==='string'&&h.entry.question.length<=600)homeAI.entry=h.entry;}}catch{}
-function currentHomeQuestion(){return homeAI.entry||{question:'',topic:'small-moment'};}
+let homeAI={entry:homeStarterEntry(),history:[]},homePending=false,homeError='',homeSeq=0,homeAbort=null;
+try{const h=JSON.parse(localStorage.getItem(HOME_AI_KEY)||'null');if(h&&Array.isArray(h.history)){homeAI.history=h.history.filter(q=>typeof q==='string'&&q.length<=600).slice(-20);if(typeof h.entry?.question==='string'&&h.entry.question.trim()&&h.entry.question.length<=600&&(h.entry.provider==='meta'||h.entry.provider==null))homeAI.entry={question:h.entry.question,topic:typeof h.entry.topic==='string'?h.entry.topic:'small-moment',provider:h.entry.provider||null,model:typeof h.entry.model==='string'?h.entry.model:null,result:h.entry.result&&typeof h.entry.result==='object'?h.entry.result:null};}}catch{}
+function currentHomeQuestion(){return homeEntryReady(homeAI.entry)?homeAI.entry:homeStarterEntry();}
 function cancelHomeQuestion(){homeSeq++;homeAbort?.abort();homeAbort=null;homePending=false;}
 async function generateHomeQuestion(){
  if(homePending)return;
  const seq=++homeSeq;homeAbort=new AbortController();homePending=true;homeError='';render();
  try{
-  const run=await witnessAI.interview({title:'A new opening question',topicId:'small-moment',questionIndex:0,answers:[],askedIntents:[],mode:'opening',avoidQuestions:homeAI.history},{provider:'live',signal:homeAbort.signal});
+  const avoid=homeAvoidQuestions(homeAI.entry,homeAI.history);const run=await witnessAI.interview(homeGenerationInput(homeAI.entry,homeAI.history),{provider:'live',signal:homeAbort.signal});
   if(seq!==homeSeq||state.view!=='home')return;
   if(run.provider!=='meta')throw Error('Meta is not enabled on this server. Your current question is unchanged.');
-  if(homeAI.history.some(q=>q.trim().toLowerCase()===run.result.question.trim().toLowerCase()))throw Error('The model repeated a question. Try again.');
+  if(avoid.some(q=>q.trim().toLowerCase()===run.result.question.trim().toLowerCase()))throw Error('The model repeated a question. Try again.');
   homeAI.entry={question:run.result.question,topic:'small-moment',provider:run.provider,model:run.model,result:run.result};homeAI.history=[...homeAI.history,run.result.question].slice(-20);
   try{localStorage.setItem(HOME_AI_KEY,JSON.stringify(homeAI));}catch{}
  }catch(e){if(seq!==homeSeq)return;homeError=e.message||'The question could not be generated. Try again.';}
@@ -320,7 +320,7 @@ function home(){
  const projects=[...state.projects].sort((a,b)=>b.updatedAt-a.updatedAt);
  const today=questionDismissed
   ?`<section class="space-restore"><button class="text-button" data-action="home-show">Show today’s question</button></section>`
-  :`<section class="space-today" aria-labelledby="space-today-q"><div class="room-hero"><div class="room-copy"><p class="date-line">${esc(dateLine)} · A question for today</p><h1 id="space-today-q">${esc(entry.question||'Get a question to begin')}</h1><p class="muted">Talk for a minute, or write a few lines.</p><div class="space-actions"><button class="button primary" data-action="home-record" ${homePending||!entry.question?'disabled':''}><span aria-hidden="true">●</span> Record a moment</button><button class="button outline" data-action="home-write" ${homePending||!entry.question?'disabled':''}>Write instead</button></div><div class="space-alt"><button class="text-button" data-action="help-start">Help me start →</button><button class="text-button" data-action="home-another" ${homePending?'disabled':''}>${homePending?'Getting a question…':entry.question?'Another question':'Generate a question'}</button><button class="text-button" data-action="home-notnow">Not now</button></div></div>${roomScene()}</div>${homeError?`<p class="stale-banner" role="alert">${esc(homeError)}</p>`:''}</section>`;
+  :`<section class="space-today" aria-labelledby="space-today-q"><div class="room-hero"><div class="room-copy"><p class="date-line">${esc(dateLine)} · A question for today</p><h1 id="space-today-q">${esc(entry.question||HOME_STARTER_QUESTION)}</h1><p class="muted">Talk for a minute, or write a few lines.</p><div class="space-actions"><button class="button primary" data-action="home-record" ${homePending||!homeEntryReady(entry)?'disabled':''}><span aria-hidden="true">●</span> Record a moment</button><button class="button outline" data-action="home-write" ${homePending||!homeEntryReady(entry)?'disabled':''}>Write instead</button></div><div class="space-alt"><button class="text-button" data-action="help-start">Help me start →</button><button class="text-button" data-action="home-another" ${homePending?'disabled':''}>${homePending?'Getting a question…':entry.question?'Another question':'Generate a question'}</button><button class="text-button" data-action="home-notnow">Not now</button></div></div>${roomScene()}</div>${homeError?`<p class="stale-banner" role="alert">${esc(homeError)}</p>`:''}</section>`;
  const shelf=projects.length
   ?`<section class="space-library" aria-label="Your story collection"><div class="section-heading"><h2>Your shelf</h2><span>${projects.length} ${projects.length===1?'story':'stories'}</span></div><p class="muted collection-hint">Conversations, moments and stories to return to. On this device.</p>${projects.map((p,i)=>collectionCard(p,i===0)).join('')}</section>`
   :`<section class="space-library" aria-label="Your story collection"><div class="section-heading"><h2>Your shelf</h2><span>Empty for now</span></div><p class="muted">A recording, a few words — start wherever you like. Everything here stays on this device.</p></section>`;

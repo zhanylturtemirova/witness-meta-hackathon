@@ -6,13 +6,13 @@ export const META_NETWORK_ENABLED=false;
 // Deliberately unlocked: live interview/event work when the server also has
 // META_AI_ENABLED=true plus MODEL_API_KEY, so mocks stay the default.
 // Flip back to false to re-lock live text instantly.
-// Transcription keeps its own META_TRANSCRIPTION_ENABLED flag; video planning stays mock-only.
+// Transcription keeps its own META_TRANSCRIPTION_ENABLED flag; video planning uses the live art director when enabled.
 export const META_TEXT_NETWORK_ENABLED=true;
 // Deliberately unlocked: live voice transcription works when the server also has
 // META_TRANSCRIPTION_ENABLED=true plus MODEL_API_KEY. Flip back to false to
 // re-lock live transcription instantly.
 export const META_SPEECH_NETWORK_ENABLED=true;
-export const LIVE_TEXT_TASKS=['interview','event','archivist','editor','period','discovery'];
+export const LIVE_TEXT_TASKS=['interview','event','archivist','editor','period','discovery','video'];
 export const DISCOVERY_TIMEOUT_MS=65000;
 export function isTextLiveEnabled(env={},fetcher=globalThis.fetch){
  return (META_TEXT_NETWORK_ENABLED||fetcher!==globalThis.fetch)&&env.META_AI_ENABLED==='true'&&!!env.MODEL_API_KEY;

@@ -1,6 +1,7 @@
 import {projectInput} from './ai-client.js';
 import {videoStale,sceneApprovalValid,filmLookValid} from './event-model.js';
 import {mediaLoad,MEDIA_IMAGES} from './media-store.js';
+import {apiAuthHeaders,ensureApiToken} from './api-auth.js';
 export async function imageCapability(fetcher=globalThis.fetch){
  try{const response=await fetcher('/api/ai-status',{cache:'no-store',signal:AbortSignal.timeout(5000)});return response.ok&&(await response.json()).imageLiveAvailable===true;}catch{return false;}
 }
@@ -43,7 +44,8 @@ export async function generateSceneImage(project,index,visualNote='',{fetcher=gl
  const input={...projectInput(project),event:project.event,options:project.video.options,scene:project.video.scenes[index],visualNote,styleText:renderStyleText(project.video.styleSpec)};
  if(ref.referenceImage)input.referenceImage=ref.referenceImage;
  let response;
- try{response=await fetcher('/api/ai/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(130000)]):AbortSignal.timeout(130000)});}
+ await ensureApiToken();
+ try{response=await fetcher('/api/ai/image',{method:'POST',headers:{'Content-Type':'application/json',...apiAuthHeaders()},body:JSON.stringify(input),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(130000)]):AbortSignal.timeout(130000)});}
  catch(err){throw Error(err?.name==='TimeoutError'?'Image generation took too long. No automatic retry was made.':signal?.aborted?'Image request cancelled. Meta may still finish processing it.':'The image server could not be reached. Your existing scene is unchanged.');}
  let data;try{data=await response.json();}catch{throw Error('The image server returned an unreadable response.');}
  if(!response.ok)throw Error(data.error||'The image could not be generated.');

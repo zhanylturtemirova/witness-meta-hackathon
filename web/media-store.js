@@ -5,6 +5,9 @@
 const DB_NAME='witness-media-v1';
 export const MEDIA_RECORDINGS='recordings';
 export const MEDIA_IMAGES='images';
+export const MEDIA_FILMS='films';
+const DB_VERSION=2;
+const MEDIA_STORES=[MEDIA_RECORDINGS,MEDIA_IMAGES,MEDIA_FILMS];
 let dbPromise=null;
 const memory=new Map();
 let lastStatus={persistent:null,error:''};
@@ -13,8 +16,8 @@ const slot=(store,id)=>store+'\n'+id;
 function openDatabase(){
  if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{
   if(typeof indexedDB==='undefined'){reject(Error('unavailable'));return;}
-  const request=indexedDB.open(DB_NAME,1);
-  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(MEDIA_RECORDINGS))db.createObjectStore(MEDIA_RECORDINGS,{keyPath:'id'});if(!db.objectStoreNames.contains(MEDIA_IMAGES))db.createObjectStore(MEDIA_IMAGES,{keyPath:'id'});};
+  const request=indexedDB.open(DB_NAME,DB_VERSION);
+  request.onupgradeneeded=()=>{const db=request.result;for(const store of MEDIA_STORES)if(!db.objectStoreNames.contains(store))db.createObjectStore(store,{keyPath:'id'});};
   request.onsuccess=()=>resolve(request.result);
   request.onerror=()=>reject(request.error||Error('unavailable'));
   request.onblocked=()=>reject(Error('blocked'));

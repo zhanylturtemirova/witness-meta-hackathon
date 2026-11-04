@@ -3,12 +3,13 @@ import {stopQuestionSpeech,refreshQuestionSpeech} from './question-speech.js';
 import {nextQuestion,questionIdentity,addRecordingMeta,getRecordingMeta,removeRecordingMeta,setRecordingTranscript,recordingAnswer} from './domain.js';
 import {mediaSave,mediaLoad,mediaDelete,MEDIA_RECORDINGS} from './media-store.js';
 import {applyListenMode,loadListenMode,saveListenMode} from './telephone.js';
+import {apiAuthHeaders,ensureApiToken,hasApiToken,setApiToken,setHostedMode} from './api-auth.js';
 const listenStorage=()=>{try{return window.localStorage;}catch{return undefined;}};
 let recording=null,project=null,activeId=null;
 const cache=new Map();
 let busy=false,starting=false,stopping=false,loadingAudio=false,pendingSaves=0,tick=null,limit=null;
 let status='Record a memory, then listen before using it.',error='',storageWarning='';
-let configured=false,configChecked=false;
+let configured=false,configChecked=false,speechHosted=false;
 let attachArmed=null,lastProject=null;
 const discardedIds=new Set();
 let notify=()=>{},apply=()=>{},persist=()=>{},revisit=()=>{};
@@ -34,11 +35,12 @@ function draw(){
  document.querySelector('#voice-preview').hidden=!hasAudio||active;
  const player=document.querySelector('#voice-playback'),audio=activeAudio();if(hasAudio&&player.getAttribute('src')!==audio.url)player.src=audio.url;
  const listenMode=loadListenMode(listenStorage());document.querySelectorAll('input[name="voice-listen"]').forEach(r=>{r.checked=r.value===listenMode;});
- const transcribe=document.querySelector('#voice-transcribe');transcribe.disabled=!configured||busy||active||stopping||!hasAudio||loadingAudio;transcribe.textContent=busy?'Transcribing…':'Transcribe with Meta ↗';
+ const needsSignin=speechHosted&&!hasApiToken();
+ const transcribe=document.querySelector('#voice-transcribe');transcribe.disabled=!configured||needsSignin||busy||active||stopping||!hasAudio||loadingAudio;transcribe.textContent=busy?'Transcribing…':'Transcribe with Meta ↗';
  document.querySelector('#voice-discard').disabled=busy||active||stopping||!meta;
  document.querySelector('#voice-download').disabled=!hasAudio;
  const upload=document.querySelector('#voice-upload');upload.disabled=busy||active||starting||stopping||loadingAudio;
- document.querySelector('#voice-connection').textContent=configChecked?(configured?'Transcribe sends this recording to Meta. Review the text before adding it.':'Meta transcription is not connected yet. You can still record and save audio.'):'Checking the Meta connection…';
+ document.querySelector('#voice-connection').textContent=!configChecked?'Checking the Meta connection…':!configured?'Meta transcription is not connected yet. You can still record and save audio.':speechHosted&&!hasApiToken()?'Sign in to transcribe with Meta. Recording and playback stay available.':'Transcribe sends this recording to Meta. Review the text before adding it.';
  const box=document.querySelector('#voice-transcript-box'),hasTranscript=!!(meta&&meta.transcript);box.hidden=!hasTranscript;
  document.querySelector('#voice-transcript-origin').textContent=hasTranscript&&meta.transcriptModel?`Transcribed with Meta · ${meta.transcriptModel}`:hasTranscript?'Transcript draft — not sent': '';
  const text=document.querySelector('#voice-transcript');if(document.activeElement!==text)text.value=meta?.transcript||'';
@@ -50,7 +52,7 @@ function draw(){
  refreshQuestionSpeech();
 }
 async function checkConnection(){
- try{const res=await fetch('/api/speech-status',{cache:'no-store',signal:AbortSignal.timeout(5000)});const result=res.ok?await res.json():{};configured=result.configured===true;}catch{configured=false;}finally{configChecked=true;draw();}
+ try{const res=await fetch('/api/speech-status',{cache:'no-store',signal:AbortSignal.timeout(5000)});const result=res.ok?await res.json():{};configured=result.configured===true;speechHosted=result.mode==='hosted';setHostedMode(speechHosted);if(speechHosted&&configured)await ensureApiToken();}catch{configured=false;speechHosted=false;setHostedMode(false);}finally{configChecked=true;draw();}
 }
 function release(){clearInterval(tick);clearTimeout(limit);tick=null;limit=null;}
 async function ensureAudio(id){
@@ -140,8 +142,10 @@ async function transcribe(){
  const owner=project,meta=activeMeta(),audio=activeAudio();
  if(!owner||!meta||!audio||busy||!configured||loadingAudio)return;busy=true;error='';status='Sending this recording to Meta for transcription…';draw();
  try{
-  const res=await fetch('/api/transcribe?language=English',{method:'POST',headers:{'Content-Type':'audio/wav'},body:audio.blob,signal:AbortSignal.timeout(95000)});
+  await ensureApiToken();
+  const res=await fetch('/api/transcribe?language=English',{method:'POST',headers:{'Content-Type':'audio/wav',...apiAuthHeaders()},body:audio.blob,signal:AbortSignal.timeout(95000)});
   let data;try{data=await res.json();}catch{throw Error('The transcription server did not respond correctly. Your recording is still here.');}
+  if(res.status===401)setApiToken('');
   if(!res.ok)throw Error(data.error||'Transcription failed. Your recording is still here.');
   if(typeof data.transcript!=='string'||!data.transcript.trim())throw Error('No speech was recognised. Listen to the recording or try again.');
   try{setRecordingTranscript(owner,meta.id,data.transcript,typeof data.model==='string'?data.model:'');}catch(err){throw Error(err.message+' Your recording is still here.');}

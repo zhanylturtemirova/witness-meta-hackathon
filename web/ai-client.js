@@ -1,6 +1,7 @@
 import {runMockTask,mockEventGenerate,mockEventVerify,mockEditorGenerate,mockEditorVerify,mockPeriodGenerate,mockPeriodVerify} from './mock-ai.js';
 import {validateAIResult,validateVerifyOutput,validateStoryboard} from './ai-contracts.js';
 import {runVerifiedEvent,verifiedEventEnvelope} from './event-verify.js';
+import {apiAuthHeaders,ensureApiToken,setHostedMode} from './api-auth.js';
 // Capability detection decides the automatic provider. A missing or mock status uses
 // local mocks automatically. A failed live generation never falls back silently:
 // the UI must offer an explicit Retry (live) or Continue with mock choice.
@@ -20,9 +21,12 @@ export async function aiStatus(force=false){
   const liveTasks=hasTasks?data.liveTasks.filter(t=>t==='interview'||t==='event'||t==='archivist'||t==='editor'||t==='period'||t==='discovery'||t==='video'):[];
   const flagged=data.textLiveAvailable===true||data.metaRequestsEnabled===true;
   const liveAvailable=flagged&&(hasTasks?liveTasks.length>0:true);
-  statusCache={provider:liveAvailable?'meta':'mock',textLiveAvailable:liveAvailable,liveTasks:hasTasks?liveTasks:(liveAvailable?['interview','event']:[]),model:'muse-spark-1.3'};
+  const hosted=data.mode==='hosted';
+  statusCache={provider:liveAvailable?'meta':'mock',mode:hosted?'hosted':'local',authRequired:data.authRequired===true,textLiveAvailable:liveAvailable,liveTasks:hasTasks?liveTasks:(liveAvailable?['interview','event']:[]),model:'muse-spark-1.3'};
+  setHostedMode(hosted);
  }catch{
-  statusCache={provider:'mock',textLiveAvailable:false,liveTasks:[],model:'muse-spark-1.3',static:true};
+  statusCache={provider:'mock',mode:'local',authRequired:false,textLiveAvailable:false,liveTasks:[],model:'muse-spark-1.3',static:true};
+  setHostedMode(false);
  }
  statusAt=now;return statusCache;
 }
@@ -38,9 +42,10 @@ function requestSignal(timeoutMs,signal){
 }
 async function liveTask(task,input,{timeoutMs=65000,signal}={}){
  let res;
+ await ensureApiToken();
  const req=requestSignal(timeoutMs,signal);
  try{
-  res=await globalThis.fetch('/api/ai/'+task,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),signal:req.signal});
+  res=await globalThis.fetch('/api/ai/'+task,{method:'POST',headers:{'Content-Type':'application/json',...apiAuthHeaders()},body:JSON.stringify(input),signal:req.signal});
  }catch(err){
   req.cleanup();
   if(err?.name==='TimeoutError')throw Error('The AI request took too long. Your answers are still saved.');
@@ -72,9 +77,10 @@ function checkLoopEnvelope(task,data,input){
 }
 async function liveLoop(task,input,{timeoutMs=EVENT_LIVE_TIMEOUT_MS,signal}={}){
  let res;
+ await ensureApiToken();
  const req=requestSignal(timeoutMs,signal);
  try{
-  res=await globalThis.fetch('/api/ai/'+task,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),signal:req.signal});
+  res=await globalThis.fetch('/api/ai/'+task,{method:'POST',headers:{'Content-Type':'application/json',...apiAuthHeaders()},body:JSON.stringify(input),signal:req.signal});
  }catch(err){
   req.cleanup();
   if(err?.name==='TimeoutError')throw Error('The AI request took too long. Your answers are still saved.');
@@ -96,18 +102,37 @@ async function mockEditor(input){
 async function mockPeriod(input){
  return verifiedEventEnvelope(await runVerifiedEvent(input,{verifier:'mock',generate:mockPeriodGenerate,verify:mockPeriodVerify,validate:(r,a)=>validateAIResult('period',r,a)}));
 }
+// Hosted servers never serve mocks: without live Meta the caller gets a
+// short error and keeps its work. Local mode keeps mock fallbacks.
+const HOSTED_UNAVAILABLE={
+ interview:'Meta interviews are not available on this server right now. Your work is saved.',
+ event:'Meta event drafts are not available on this server right now. Your work is saved.',
+ archivist:'Meta event grouping is not available on this server right now. Your work is saved.',
+ editor:'Meta wording help is not available on this server right now. Your work is saved.',
+ period:'Meta period drafts are not available on this server right now. Your work is saved.',
+ video:'Meta storyboards are not available on this server right now. Your work is saved.',
+};
+function hostedUnavailable(task){return HOSTED_UNAVAILABLE[task]||'Meta is not available on this server right now. Your work is saved.';}
 async function singleTask(task,input,{provider,timeoutMs,signal}){
- if(provider==='mock')return runMockTask(task,input);
- if(provider==='live')return liveTask(task,input,{timeoutMs,signal});
  const status=await aiStatus();
+ if(provider==='mock'){
+  if(status.mode==='hosted')throw Error('Mocks are not available on this server.');
+  return runMockTask(task,input);
+ }
+ if(provider==='live')return liveTask(task,input,{timeoutMs,signal});
  if(status.textLiveAvailable&&status.liveTasks.includes(task))return liveTask(task,input,{timeoutMs,signal});
+ if(status.mode==='hosted')throw Error(hostedUnavailable(task));
  return runMockTask(task,input);
 }
 async function loopTask(task,input,{provider,timeoutMs,signal},mock){
- if(provider==='mock')return mock(input);
- if(provider==='live')return liveLoop(task,input,{timeoutMs,signal});
  const status=await aiStatus();
+ if(provider==='mock'){
+  if(status.mode==='hosted')throw Error('Mocks are not available on this server.');
+  return mock(input);
+ }
+ if(provider==='live')return liveLoop(task,input,{timeoutMs,signal});
  if(status.textLiveAvailable&&status.liveTasks.includes(task))return liveLoop(task,input,{timeoutMs,signal});
+ if(status.mode==='hosted')throw Error(hostedUnavailable(task));
  return mock(input);
 }
 export const witnessAI={

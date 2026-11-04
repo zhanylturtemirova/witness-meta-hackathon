@@ -1,0 +1,36 @@
+# Witness on Render Free (hackathon test deployment). No secrets live here:
+# values marked sync:false are entered in the Render dashboard and never
+# committed. Do not deploy from this file without maintainer approval.
+services:
+  - type: web
+    name: witness
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node scripts/serve.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: HOST
+        value: 0.0.0.0
+      - key: WITNESS_NO_BUILD
+        value: true
+      - key: META_AI_ENABLED
+        value: true
+      - key: META_TRANSCRIPTION_ENABLED
+        value: true
+      - key: AI_USER_HOURLY_LIMIT
+        value: 60
+      - key: AI_MAX_CONCURRENT
+        value: 1
+      - key: AI_GENERATION_CAP
+        value: 1000
+      - key: PUBLIC_ORIGIN
+        sync: false
+      - key: MODEL_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false

@@ -12,12 +12,14 @@ test('media bytes round-trip through the real IndexedDB branch', async () => {
   assert.equal(saved.persistent, true);
   assert.deepEqual(
     [...globalThis.indexedDB._state('witness-media-v1').stores.keys()],
-    [store.MEDIA_RECORDINGS, store.MEDIA_IMAGES]
+    [store.MEDIA_RECORDINGS, store.MEDIA_IMAGES, store.MEDIA_FILMS]
   );
   const back = await store.mediaLoad(store.MEDIA_RECORDINGS, 'r1');
   assert.deepEqual(new Uint8Array(await back.blob.arrayBuffer()), new Uint8Array([9, 8, 7]));
   await store.mediaSave(store.MEDIA_IMAGES, {id: 'r1', projectId: 'p', blob: new Blob(['x'])});
   assert.equal(await (await store.mediaLoad(store.MEDIA_IMAGES, 'r1')).blob.text(), 'x');
+  await store.mediaSave(store.MEDIA_FILMS, {id: 'f1', projectId: 'p', blob: new Blob(['v'], {type: 'video/mp4'})});
+  assert.equal((await store.mediaLoad(store.MEDIA_FILMS, 'f1')).blob.type, 'video/mp4');
   await store.mediaDelete(store.MEDIA_RECORDINGS, 'r1');
   assert.equal(await store.mediaLoad(store.MEDIA_RECORDINGS, 'r1'), null);
   assert.equal((await store.mediaLoad(store.MEDIA_IMAGES, 'r1')).id, 'r1');

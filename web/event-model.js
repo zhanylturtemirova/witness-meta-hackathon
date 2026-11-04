@@ -134,3 +134,22 @@ export function acceptDependentImage(p,index){
  scene.image.lookAccepted={imageId:approval.imageId,styleSig:approval.styleSig,at:Date.now()};
  p.updatedAt=Date.now();return scene.image.lookAccepted;
 }
+// Record an exported film on its storyboard so the player can be restored
+// after navigation or reopening. Bytes live in the films media store; only
+// small metadata and the source snapshot stay on the project.
+export function recordFilmExport(p,{id,mimeType,size,durationSec}={}){
+ if(!p?.video||!Array.isArray(p.video.scenes)||!p.video.scenes.length)throw Error('Review your event and create a current storyboard first.');
+ if(typeof id!=='string'||!id||typeof mimeType!=='string'||!mimeType.startsWith('video/'))throw Error('The exported film could not be saved.');
+ p.video.filmExport={id,mimeType,size:Number.isFinite(size)?size:null,durationSec:typeof durationSec==='number'&&durationSec>0?Math.round(durationSec*10)/10:null,createdAt:Date.now(),eventRevision:p.event?.revision||0,sourceSignature:answerSignature(p.answers||[]),images:p.video.scenes.map(s=>s.image?.id||null)};
+ p.updatedAt=Date.now();return p.video.filmExport;
+}
+// A saved film is stale when its storyboard sources or scene images changed
+// since export. Missing exports are not stale: there is nothing to restore.
+export function filmExportStale(p){
+ const f=p?.video?.filmExport;
+ if(!f||!p?.video||!Array.isArray(p.video.scenes))return false;
+ if((p.event?.revision||0)!==(f.eventRevision||0))return true;
+ if(answerSignature(p.answers||[])!==f.sourceSignature)return true;
+ const images=p.video.scenes.map(s=>s.image?.id||null);
+ return images.length!==(f.images||[]).length||images.some((id,i)=>id!==f.images[i]);
+}

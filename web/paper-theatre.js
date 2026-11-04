@@ -124,13 +124,17 @@ export function drawPaperFrame(ctx,W=1280,H=720,setId='hearth',t=0,opts={}){
 }
 // Current film preferences stored on project.video.film and persisted with
 // the existing onSave. Images, narration, approvals, and sources untouched.
+export const NARRATION_MODES=['recordings','upload','silent'];
+export function normalizeNarrationMode(mode){return NARRATION_MODES.includes(mode)?mode:'';}
 export function filmSettings(project){
  const film=project&&project.video&&typeof project.video.film==='object'?project.video.film:{};
+ const narration=film.narration&&typeof film.narration==='object'?film.narration:{};
  return {
   mode:normalizeFilmMode(film.mode),
   sceneSets:Array.isArray(film.sceneSets)?film.sceneSets.map(s=>normalizePaperSet(s||suggestPaperSet(''))):[],
   style:listStylePresets().includes(film.style)?film.style:'',
   subtitles:film.subtitles!==false,
+  narration:{mode:normalizeNarrationMode(narration.mode),excluded:Array.isArray(narration.excluded)?narration.excluded.filter(id=>typeof id==='string'):[]},
  };
 }
 export function saveFilmSettings(project,patch={},onSave=()=>{}){
@@ -147,6 +151,16 @@ export function saveFilmSettings(project,patch={},onSave=()=>{}){
  if(patch.sceneSets!==undefined&&Array.isArray(patch.sceneSets))film.sceneSets=patch.sceneSets.map(s=>normalizePaperSet(s));
  if(patch.style!==undefined)film.style=listStylePresets().includes(patch.style)?patch.style:'';
  if(patch.subtitles!==undefined)film.subtitles=patch.subtitles!==false;
+ if(patch.narrationMode!==undefined){
+  if(!NARRATION_MODES.includes(patch.narrationMode))throw Error('Choose a narration source: recordings, upload, or silent.');
+  if(!film.narration||typeof film.narration!=='object')film.narration={};
+  film.narration.mode=patch.narrationMode;
+ }
+ if(patch.narrationExcluded!==undefined){
+  if(!Array.isArray(patch.narrationExcluded)||!patch.narrationExcluded.every(id=>typeof id==='string'))throw Error('Choose which recordings to exclude.');
+  if(!film.narration||typeof film.narration!=='object')film.narration={};
+  film.narration.excluded=[...new Set(patch.narrationExcluded)];
+ }
  project.updatedAt=Date.now();onSave();return filmSettings(project);
 }
 // Gate a film render/export. Paper theatre needs no images; illustrated film

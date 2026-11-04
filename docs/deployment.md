@@ -47,34 +47,37 @@ describe the current code; items marked Needed are gaps to close.
   rate handling, and upload size limits still need real-device checks
   before any mobile claim.
 
-## Local-only storage limitations
+## Storage limitations
 
-- Stored stories, recordings, and images live only in the browser: there is
-  no account, no sync, and no server copy. Clearing browser data removes
-  them; the UI says so and offers backup downloads. Storage being local
-  does not mean nothing is ever sent anywhere: when live AI features are
-  enabled on the local server, the selected material for each request is
-  sent to Meta for processing — interview answers for questions, events,
-  grouping, and wording; audio for transcription; approved scene excerpts
-  for images. Nothing is sent automatically; each request follows a
-  narrator action, and mock mode sends nothing.
-- Browser storage can be evicted under space pressure, and private windows
-  may discard it on close. The app surfaces storage failures instead of
-  silently losing media, but it cannot recover evicted bytes.
+- Now: story text can be backed up to a signed-in account (`witness_projects`
+  rows, owner-scoped by row-level security); recordings, scene images, and
+  exported films live only in the browser's IndexedDB — there is no cloud
+  media storage yet, and the server never writes uploads to disk. Clearing
+  browser data removes media; the UI says so and offers backup downloads.
+  Storage being local does not mean nothing is ever sent anywhere: when live
+  AI features are used, the selected material for each request is sent to
+  Meta for processing — interview answers for questions, events, grouping,
+  and wording; audio for transcription; approved scene excerpts for images;
+  public excerpts for semantic discovery. Nothing is sent automatically;
+  each request follows a narrator action, and mock mode sends nothing.
+- Now: browser storage can be evicted under space pressure, and private
+  windows may discard it on close. The app surfaces storage failures instead
+  of silently losing media, but it cannot recover evicted bytes.
+- Needed: cloud media storage (Supabase Storage is not wired); backup
+  restore (export exists, import does not).
 
 ## Hosted Node backend
 
-`scripts/serve.mjs` plus `server/` is the starting point, not a finished
-hosted backend.
-
-- Now: secrets load from server-side environment (`.env` is gitignored and
-  never shipped); `/api/` routes accept localhost only; one live AI request
-  runs at a time with per-request timeouts and an overall verification
-  deadline; transcription, images, and text each have separate enable flags;
-  billing, key, and rate-limit failures return readable errors without
-  automatic retries.
-- Needed before hosting: replace the localhost gate with real origins and
-  authentication; scope the concurrency guard and budgets per user or key;
-  add TLS termination, request logging without prompts or transcripts,
-  health checks, and provider spend caps with alerts. Never log answer
+- Now: `PUBLIC_ORIGIN` switches the server to hosted mode (local mode keeps
+  localhost defaults and mocks). The server binds `HOST`/`PORT`, serves a
+  lightweight `/health` probe, and gates `/api/` to the configured public
+  host without trusting forwarded headers. Every paid Meta endpoint
+  requires a server-verified Supabase session; per-user hourly limits,
+  bounded concurrency, request deadlines, and a shared generation cap
+  protect the key, and verification/repair calls count too. Hosted mode
+  never serves mocks: missing keys or sessions produce short errors while
+  user work stays saved. Secrets live in server-side environment only;
+  nothing logs stories, recordings, tokens, keys, or populated values.
+- Needed before public traffic: provider spend alerts, mobile-browser
+  verification, backup restore, and cloud media storage. Never log answer
   text, audio, API keys, or populated environment values.

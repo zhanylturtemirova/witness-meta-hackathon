@@ -37,7 +37,7 @@ The first build focuses on this interview-to-story flow. Connect previews a glob
 
 The app uses local mocks by default and makes no model calls until live requests are deliberately enabled on the local server. See [Models and their roles](docs/meta-models.md) for the details.
 
-The interviewer, archivist, editor and verifier are configured in [agents/](agents/README.md). The server uses these role files directly; they share Muse Spark with separate instructions.
+The interviewer, archivist, editor, verifier, discovery, and art-director roles are configured in [agents/](agents/README.md). The server uses these role files directly; they share Muse Spark with separate instructions, calling Meta chat completions with strict structured output, the speech-transcription endpoint, and the image endpoint. Read-aloud is separate: it uses only voices installed on the device, never a Meta model.
 
 Run `npm run eval:agents` to rehearse the roles on fictional interviews without network calls. [Agent evaluation](docs/agent-evaluation.md) explains the report, human review and a separately enabled live check with a call budget.
 
@@ -47,7 +47,9 @@ An approved story can become an illustrated film: each scene gets a Muse Image i
 
 ## On your phone
 
-Witness installs as an app (PWA) and keeps working offline: saved stories stay readable, and writing and recording stay available without a connection. [Installation and offline behaviour](docs/pwa.md).
+Witness installs as an app (PWA). In Chrome use **Install Witness** when offered; on iPhone or iPad, open the app in Safari and use **Share → Add to Home Screen**. Installation creates no account and syncs nothing between devices.
+
+Once installed, saved stories stay readable and writing and recording stay available without a connection. Meta interviews, transcription, verification, and image generation need a reachable backend and internet. App updates wait for an explicit **Reload to update** and never interrupt a recording. [Installation and offline behaviour](docs/pwa.md).
 
 Optional reminders can nudge you back to the conversation — a saved phrase resurfacing, or a new question inviting you to start or continue reflecting. Reminders need a signed-in account and server setup, and stay off unless you enable them. [Push setup](docs/push-setup.md).
 
@@ -80,17 +82,29 @@ npm run build
 
 The build writes the static app and offline shell to `dist/`. Witness can be installed as a PWA; saved stories and local writing/recording remain available offline after setup. Meta tools need a connection. [Installation and offline behaviour](docs/pwa.md).
 
+## Hosted test deployment
+
+`render.yaml` pins the Render Free setup (Node 22): build `npm install && npm run build`, start `node scripts/serve.mjs`, health check `/health`. The server binds `HOST`/`PORT` (Render provides `PORT`) and stays in local mode unless `PUBLIC_ORIGIN` is set to the public site origin.
+
+On the hosted deployment, Meta interviews, transcription, story processing, storyboards, images, and semantic discovery all use the live Meta adapters; fictional examples, mocks, and mock fallbacks are removed from the experience. Every paid endpoint requires a server-verified Supabase session, with per-user hourly limits, bounded concurrency, request deadlines, and a shared generation cap. If Meta is unavailable, the app shows a short error and preserves all work. See [Deployment readiness](docs/deployment.md).
+
+Required environment variable names (values live only in the Render dashboard, never in Git): `PUBLIC_ORIGIN`, `MODEL_API_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`. Optional tuning: `AI_USER_HOURLY_LIMIT`, `AI_MAX_CONCURRENT`, `AI_GENERATION_CAP`. `HOST` must be `0.0.0.0` and `WITNESS_NO_BUILD` true.
+
+After the public URL is known, update: the Supabase dashboard Site URL and redirect URLs, and the Google Cloud OAuth client (authorized JavaScript origins and redirect URIs), plus `PUBLIC_ORIGIN` itself — until then Google sign-in returns to localhost.
+
+Remaining limitations: recordings, images, and films stay in the browser (no cloud media storage yet — Supabase Storage is not wired, and Render's filesystem is temporary); mobile browsers are unverified; there is no backup restore; push reminders need their own server setup. [Deployment readiness](docs/deployment.md) tracks these.
+
 ## Connect
 
-Open **Connect** from the sidebar to explore a globe of shared experiences. Choose one of your confirmed events or a fictional example to see related stories connect across a textured Earth. Drag to rotate, locate a story on the map, or open a marker to read it.
+Open **Connect** from the sidebar to explore a globe of shared experiences. Choose one of your confirmed events to see related stories connect across a textured Earth. Drag to rotate, locate a story on the map, or open a marker to read it.
 
-Your event stays private; the community profiles are fictional. Preview matching uses explicit topics and evidence. It needs no AI credits or map key. [How Connect works](docs/connect.md).
+Stories you publish appear to others; everything else stays on your device. Locally, fictional examples are available for preview and are always labelled; the hosted deployment shows real published stories only, with honest empty states when none exist. Semantic matching sends only public excerpts you chose to search, ranks them with Muse, and never invents people, quotes, or matches. [How Connect works](docs/connect.md).
 
 ## Voice answers
 
 Record up to two minutes in English, listen, and download the audio. Recording and playback work without credentials. Live interview and event requests need `MODEL_API_KEY` plus `META_AI_ENABLED=true` in the server `.env`; anything else stays on mocks. Image generation uses the same live server configuration; set `META_IMAGE_ENABLED=false` to disable it separately. Transcription needs `MODEL_API_KEY` plus `META_TRANSCRIPTION_ENABLED=true`, and names its model on success.
 
-The static Site supports local recording but needs a hosted server route before live transcription can be enabled there.
+The static Site supports local recording but needs a hosted server route before live transcription can be enabled there. On the hosted deployment, transcription and all Meta features require a signed-in account. Reading questions aloud is separate: it uses voices installed on the device, not a Meta model.
 
 See [Voice answers](docs/voice-answers.md) for the implementation and limits.
 

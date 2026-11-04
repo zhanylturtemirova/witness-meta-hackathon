@@ -38,6 +38,7 @@ import {
   validateDiscoveryInput,
   validateDiscoveryResult,
 } from './ai-contracts.js';
+import {apiAuthHeaders, ensureApiToken} from './api-auth.js';
 
 export const DISCOVERY_MAX_CANDIDATES = DISCOVERY_LIMITS.MAX_CANDIDATES;
 export const DISCOVERY_MAX_EXCERPT = DISCOVERY_LIMITS.MAX_CANDIDATE_TEXT;
@@ -312,11 +313,12 @@ export function invalidateDiscoveryState(state) {
 // semantic fallback).
 export async function fetchDiscoveryResults(request, { fetcher = globalThis.fetch, signal } = {}) {
   validateDiscoveryInput(request);
+  await ensureApiToken();
   let res;
   try {
     res = await fetcher('/api/ai/discovery', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...apiAuthHeaders() },
       body: JSON.stringify(request),
       ...(signal ? { signal } : {}),
     });

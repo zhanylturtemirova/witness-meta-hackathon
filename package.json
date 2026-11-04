@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "node scripts/serve.mjs",
+    "start": "node scripts/serve.mjs",
     "test": "node --test",
     "eval:agents": "node scripts/evaluate-agents.mjs",
     "eval:interviewer": "node scripts/evaluate-interviewer.mjs",
@@ -14,8 +15,10 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0"
+  },
   "devDependencies": {
-    "@supabase/supabase-js": "^2.118.0",
     "esbuild": "^0.28.2"
   }
 }

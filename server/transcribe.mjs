@@ -1,22 +1,31 @@
 import {META_SPEECH_NETWORK_ENABLED} from './ai/meta.mjs';
 import {wavInfo} from '../web/audio.js';
+import {isHosted} from './config.mjs';
+import {requireUser} from './auth.mjs';
+import {spendGeneration,acquireSlot} from './ai/budget.mjs';
 export const MAX_UPLOAD_BYTES=6*1024*1024;
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 const languages=new Set(['English','German','French','Spanish','Italian','Portuguese','Japanese','Korean','Mandarin Chinese','Arabic','Bengali','Dutch','Hebrew','Hindi','Indonesian','Kannada','Malay','Marathi','Polish','Tagalog','Tamil','Telugu','Thai','Turkish','Vietnamese']);
-let inFlight=false;
-export async function handleSpeech(request,env={},fetcher=fetch){
- const url=new URL(request.url),enabled=(META_SPEECH_NETWORK_ENABLED||fetcher!==globalThis.fetch)&&env.META_TRANSCRIPTION_ENABLED==='true'&&!!env.MODEL_API_KEY;
- if(url.pathname==='/api/speech-status')return request.method==='GET'?json({configured:enabled,model:'muse-voice-transcribe-1.0'}):json({error:'Method not allowed.'},405);
+export async function handleSpeech(request,env={},fetcher=fetch,deps={}){
+ const url=new URL(request.url),enabled=(META_SPEECH_NETWORK_ENABLED||fetcher!==globalThis.fetch)&&env.META_TRANSCRIPTION_ENABLED==='true'&&!!env.MODEL_API_KEY,hosted=isHosted(env);
+ if(url.pathname==='/api/speech-status')return request.method==='GET'?json({configured:enabled,mode:hosted?'hosted':'local',authRequired:hosted,model:'muse-voice-transcribe-1.0'}):json({error:'Method not allowed.'},405);
  if(url.pathname!=='/api/transcribe')return null;
  if(request.method!=='POST')return json({error:'Method not allowed.'},405);
  const origin=request.headers.get('Origin');if((origin&&origin!==url.origin)||request.headers.get('Sec-Fetch-Site')==='cross-site')return json({error:'Open Witness in this browser before transcribing.'},403);
+ let userId=null;
+ if(hosted){
+  try{({userId}=await requireUser(request,env,deps));}
+  catch(err){return json({error:err.message},err.status||401);}
+ }
  if(!enabled)return json({error:'Meta transcription is not connected. You can still record, listen, and download your audio.'},503);
- if(inFlight)return json({error:'Another recording is being transcribed. Please wait.'},429);
- if(request.headers.get('Content-Type')?.split(';')[0]!=='audio/wav')return json({error:'Upload a PCM WAV recording.'},415);
- if(Number(request.headers.get('Content-Length'))>MAX_UPLOAD_BYTES)return json({error:'Choose a recording smaller than 6 MB.'},413);
- const language=url.searchParams.get('language')||'';if(language&&!languages.has(language))return json({error:'Choose a supported transcription language.'},400);
- inFlight=true;
+ let release;
+ try{release=acquireSlot(env);}
+ catch(err){return json({error:err.message},err.status||429);}
+ if(request.headers.get('Content-Type')?.split(';')[0]!=='audio/wav'){release();return json({error:'Upload a PCM WAV recording.'},415);}
+ if(Number(request.headers.get('Content-Length'))>MAX_UPLOAD_BYTES){release();return json({error:'Choose a recording smaller than 6 MB.'},413);}
+ const language=url.searchParams.get('language')||'';if(language&&!languages.has(language)){release();return json({error:'Choose a supported transcription language.'},400);}
  try{
+   spendGeneration(userId,env);
    const reader=request.body?.getReader();if(!reader)return json({error:'The recording is empty.'},400);
    const parts=[];let length=0;
    for(;;){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;if(length>MAX_UPLOAD_BYTES){await reader.cancel();return json({error:'Choose a recording smaller than 6 MB.'},413);}parts.push(value);}
@@ -31,6 +40,9 @@ export async function handleSpeech(request,env={},fetcher=fetch){
    if(!result.transcript.trim())return json({error:'No speech was recognised. Listen to the recording or try again.'},422);
    if(result.transcript.length>20000)return json({error:'The transcript is too long for one answer. Use a shorter recording.'},422);
    return json({transcript:result.transcript,model:'muse-voice-transcribe-1.0'});
- }catch(err){return json({error:err.name==='TimeoutError'?'Transcription took too long. Your recording is still available; try again.':'The transcription service could not be reached. Your recording is still available.'},502);}
- finally{inFlight=false;}
+ }catch(err){
+  if(err.status)return json({error:err.message},err.status);
+  return json({error:err.name==='TimeoutError'?'Transcription took too long. Your recording is still available; try again.':'The transcription service could not be reached. Your recording is still available.'},502);
+ }
+ finally{release();}
 }
